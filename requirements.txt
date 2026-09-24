@@ -3,6 +3,7 @@ gunicorn==26.0.0
 google-auth
 google-auth-oauthlib
 pywebpush
+flask-babel
 itsdangerous
 Jinja2
 MarkupSafe
