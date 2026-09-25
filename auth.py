@@ -7,7 +7,11 @@ Templates zote ziko kwenye templates/auth/:
     reset_password.html, verify_otp.html, verify_reset_otp.html
 """
 import re
-import sqlite3
+import sqlite3  # kept for legacy; Neon uses psycopg2
+try:
+    from psycopg2 import IntegrityError as PgIntegrityError
+except ImportError:
+    PgIntegrityError = tuple()  # never matches
 import secrets
 import traceback
 from datetime import datetime, timedelta
@@ -65,22 +69,36 @@ def _row_get(row, key, default=None):
 
 
 def _parse_dt(value):
-    """Badilisha string/datetime kutoka DB kuwa datetime (au None)."""
+    """Badilisha string/datetime kutoka DB kuwa datetime naive (au None)."""
     if value is None or value == '':
         return None
     if isinstance(value, datetime):
+        # Neon may return timezone-aware → strip tz for compare with datetime.now()
+        if value.tzinfo is not None:
+            try:
+                return value.replace(tzinfo=None)
+            except Exception:
+                return value
         return value
     if isinstance(value, str):
-        for fmt in ('%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S'):
+        s = value.strip().replace('T', ' ')
+        # drop timezone suffix e.g. +00:00 / Z
+        if s.endswith('Z'):
+            s = s[:-1]
+        if '+' in s[10:]:
+            s = s[:s.index('+', 10)]
+        s = s.strip()
+        for fmt in ('%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
             try:
-                return datetime.strptime(value, fmt)
+                return datetime.strptime(s, fmt)
             except ValueError:
                 continue
         try:
-            return datetime.fromisoformat(value)
-        except ValueError:
+            return datetime.fromisoformat(value.replace('Z', '+00:00')).replace(tzinfo=None)
+        except Exception:
             return None
     return None
+
 
 
 def _safe_equals(a, b):
@@ -133,7 +151,7 @@ def _get_attempts(conn, key):
     row = conn.execute(
         'SELECT attempts FROM otp_attempts WHERE key = ?', (key,)
     ).fetchone()
-    return int(row[0]) if row else 0
+    return int(row['attempts'] if hasattr(row, 'keys') and 'attempts' in row.keys() else row[0]) if row else 0
 
 
 def _add_attempt(conn, key):
@@ -161,10 +179,21 @@ def _reset_attempts(conn, key):
 def _ensure_facebook_id_column(conn):
     """Ongeza column facebook_id kwenye users kama haipo (auto-migration)."""
     try:
-        cols = [r[1] for r in conn.execute('PRAGMA table_info(users)').fetchall()]
-        if 'facebook_id' not in cols:
-            conn.execute('ALTER TABLE users ADD COLUMN facebook_id TEXT')
-            conn.commit()
+        try:
+            # PostgreSQL
+            row = conn.execute(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name='users' AND column_name='facebook_id' LIMIT 1"
+            ).fetchone()
+            if not row:
+                conn.execute('ALTER TABLE users ADD COLUMN facebook_id TEXT')
+                conn.commit()
+        except Exception:
+            # SQLite fallback
+            cols = [r[1] for r in conn.execute('PRAGMA table_info(users)').fetchall()]
+            if 'facebook_id' not in cols:
+                conn.execute('ALTER TABLE users ADD COLUMN facebook_id TEXT')
+                conn.commit()
     except Exception as e:
         print('[FB] ensure facebook_id column error:', e)
 
@@ -482,7 +511,7 @@ def register_auth_routes(app):
             flash('Imeshindwa kutuma OTP. Jaribu tena baadaye.', 'error')
             return _reg_form(form_username=username, suggested_username=username)
 
-        except sqlite3.IntegrityError:
+        except (sqlite3.IntegrityError, PgIntegrityError):
             conn.rollback()
             flash('Username au Email hii tayari imeshasajiliwa!', 'error')
             return redirect(url_for('register'))
@@ -723,7 +752,7 @@ def register_auth_routes(app):
             )
             return redirect(url_for('change_language'))
 
-        except sqlite3.IntegrityError:
+        except (sqlite3.IntegrityError, PgIntegrityError):
             if conn:
                 try:
                     conn.rollback()

@@ -93,6 +93,35 @@ class CompatCursor:
         if params is not None:
             if isinstance(params, list):
                 params = tuple(params)
+        is_insert = bool(re.match(r"\s*INSERT\s+", adapted, re.I))
+        has_returning = "RETURNING" in adapted.upper()
+        if is_insert and not has_returning and "ON CONFLICT DO NOTHING" not in adapted.upper():
+            adapted_ret = adapted.rstrip().rstrip(";") + " RETURNING id"
+            try:
+                if params is not None:
+                    self._cur.execute(adapted_ret, params)
+                else:
+                    self._cur.execute(adapted_ret)
+                row = self._cur.fetchone()
+                self.rowcount = self._cur.rowcount
+                if row is not None:
+                    try:
+                        self.lastrowid = row["id"]
+                    except Exception:
+                        try:
+                            self.lastrowid = list(row.values())[0]
+                        except Exception:
+                            self.lastrowid = None
+                return self
+            except Exception:
+                # fallback bila RETURNING
+                if params is not None:
+                    self._cur.execute(adapted, params)
+                else:
+                    self._cur.execute(adapted)
+                self.rowcount = self._cur.rowcount
+                return self
+        if params is not None:
             self._cur.execute(adapted, params)
         else:
             self._cur.execute(adapted)
