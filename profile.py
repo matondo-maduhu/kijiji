@@ -547,6 +547,14 @@ def register_profile_routes(app):
             'SELECT * FROM users WHERE id = ?', (user_id,)
         ).fetchone()
         conn.close()
+        # Neon/Postgres: timestamps ni datetime objects — template inatumia [:4]
+        user = dict(user) if user is not None else {}
+        for _k, _v in list(user.items()):
+            if hasattr(_v, 'strftime'):
+                try:
+                    user[_k] = _v.strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    user[_k] = str(_v)
         return render_template('profile/edit_profile.html', user=user)
 
 
