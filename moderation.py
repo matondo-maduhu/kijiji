@@ -1,242 +1,106 @@
-try:
-    from storage import download_to_bytes, media_url
-except ImportError:
-    download_to_bytes = None
-    media_url = None
-
 """
-moderation.py
-==============
-Moduli ya kutambua maudhui ya uchi (NSFW) kwenye picha na video
-kabla ya kuchapishwa hadharani (public feed).
+moderation.py — NSFW check (optional external APIs).
 
-Inatumia NudeNet (https://github.com/notAI-tech/NudeNet) - model ya
-bure/open-source, haihitaji API key wala malipo. Model inapakuliwa
-moja kwa moja (mara ya kwanza tu) inapotumika kwa mara ya kwanza,
-hivyo unahitaji internet wakati wa kuisakinisha/kuitumia mara ya
-kwanza kwenye server yako.
+PRIORITY:
+  1) SIGHTENGINE_API_USER + SIGHTENGINE_API_SECRET  → Sightengine
+  2) OPENAI_API_KEY                                 → OpenAI omni-moderation
+  3) Hakuna key                                     → APPROVE (app inaendelea)
 
-Sakinisha:
-    pip install nudenet opencv-python-headless
-
-Jinsi inavyofanya kazi:
-- PICHA: NudeDetector inachambua picha moja kwa moja, inarudisha
-  "detections" (sehemu za mwili zilizogunduliwa + confidence score).
-- VIDEO: Tunachukua "frames" kadhaa (mfano: kila baada ya sekunde N,
-  au idadi maalum ya frames zilizosambaa sawasawa kwenye video nzima),
-  kila frame inachambuliwa kama picha, na tunachukua score kubwa zaidi
-  kati ya frames zote.
-
-Uamuzi (decision):
-- score >= REJECT_THRESHOLD      -> "rejected"       (haionekani public,
-                                                        warning kwa user)
-- REVIEW_THRESHOLD <= score < REJECT_THRESHOLD -> "manual_review"
-                                                        (haionekani public
-                                                        mpaka admin aangalie)
-- score < REVIEW_THRESHOLD       -> "approved"       (inaendelea kama kawaida)
-
-Unaweza kubadilisha thresholds hapa chini kulingana na jinsi
-unavyotaka mfumo uwe mkali au mpole.
+Env ya ziada:
+  MODERATION_FAIL_MODE = approved | manual_review
+      (default: approved) — kinachotokea kama API haipo / imeshindwa
 """
+from __future__ import annotations
 
 import os
-import tempfile
+from typing import Any, Dict, List, Tuple
 
-# ==================== SETTINGS (badilisha kama unahitaji) ====================
+import requests
 
-# Chini ya hii = salama kabisa
 REVIEW_THRESHOLD = 0.45
-
-# Zaidi/sawa na hii = ukiukaji wa wazi -> rejected moja kwa moja
 REJECT_THRESHOLD = 0.75
-
-# Sehemu za mwili ambazo, zikigundulika, zinahesabiwa kama ukiukaji.
-# (Majina haya yanatoka NudeNet v3 default detector labels)
-UNSAFE_LABELS = {
-    "FEMALE_BREAST_EXPOSED",
-    "FEMALE_GENITALIA_EXPOSED",
-    "MALE_GENITALIA_EXPOSED",
-    "BUTTOCKS_EXPOSED",
-    "ANUS_EXPOSED",
-    "ANUS_COVERED",          # mara nyingi bado ni "suggestive" -> tutaipa uzito kidogo
-    "FEMALE_BREAST_COVERED", # suggestive tu, si ukiukaji mkubwa
-    "MALE_BREAST_EXPOSED",
-}
-
-# Labels ambazo ni "wazi kabisa" (weight kamili ya score yake)
-HARD_UNSAFE_LABELS = {
-    "FEMALE_BREAST_EXPOSED",
-    "FEMALE_GENITALIA_EXPOSED",
-    "MALE_GENITALIA_EXPOSED",
-    "BUTTOCKS_EXPOSED",
-    "ANUS_EXPOSED",
-}
-
-# Idadi ya frames za kuchambua kwenye video (zaidi = sahihi zaidi lakini
-# polepole zaidi)
-VIDEO_FRAMES_TO_SAMPLE = 6
-
-_detector = None
+TIMEOUT_SECONDS = 25
 
 
-def _get_detector():
-    """Load NudeDetector mara moja tu (singleton) - model ni nzito kuipakia."""
-    global _detector
-    if _detector is None:
-        from nudenet import NudeDetector
-        _detector = NudeDetector()
-    return _detector
+def _fail_mode() -> str:
+    m = (os.environ.get("MODERATION_FAIL_MODE") or "approved").strip().lower()
+    if m in ("approved", "manual_review", "rejected"):
+        return m
+    return "approved"
 
 
-def _score_from_detections(detections):
-    """
-    Chukua detections (list ya dict zenye 'class' na 'score') na
-    kokotoa score moja ya juu zaidi ya 'ukiukaji', pamoja na majina
-    ya labels zilizogundulika.
-    """
-    best_score = 0.0
-    matched_labels = []
-
-    for det in detections or []:
-        label = det.get("class") or det.get("label")
-        score = float(det.get("score", 0.0))
-
-        if label in HARD_UNSAFE_LABELS:
-            weight = 1.0
-        elif label in UNSAFE_LABELS:
-            weight = 0.6  # suggestive/covered -> tunapunguza uzito
-        else:
-            continue
-
-        weighted = score * weight
-        if weighted > best_score:
-            best_score = weighted
-        matched_labels.append(f"{label}:{round(score, 2)}")
-
-    return best_score, matched_labels
+def _fail_result(reason: str) -> Dict[str, Any]:
+    decision = _fail_mode()
+    print(f"[moderation] skip/fail ({reason}) → {decision}")
+    return {"decision": decision, "score": 0.0, "labels": [reason]}
 
 
-def analyze_image(image_path):
-    """
-    Chambua picha moja. Rudisha (score: float 0..1, labels: list[str]).
-    """
+def _public_url(file_path: str) -> str:
+    if not file_path:
+        return ""
+    s = str(file_path).strip()
+    if s.startswith("http://") or s.startswith("https://"):
+        return s
     try:
-        detector = _get_detector()
-        detections = detector.detect(image_path)
-        return _score_from_detections(detections)
+        from storage import media_url
+        return media_url(s) or ""
+    except Exception:
+        return ""
+
+
+# -------------------- Sightengine --------------------
+
+def _sightengine_enabled() -> bool:
+    return bool(
+        (os.environ.get("SIGHTENGINE_API_USER") or "").strip()
+        and (os.environ.get("SIGHTENGINE_API_SECRET") or "").strip()
+    )
+
+
+def _check_sightengine(url: str) -> Dict[str, Any]:
+    user = os.environ.get("SIGHTENGINE_API_USER", "").strip()
+    secret = os.environ.get("SIGHTENGINE_API_SECRET", "").strip()
+    try:
+        r = requests.get(
+            "https://api.sightengine.com/1.0/check.json",
+            params={
+                "url": url,
+                "models": "nudity-2.0",
+                "api_user": user,
+                "api_secret": secret,
+            },
+            timeout=TIMEOUT_SECONDS,
+        )
+        data = r.json() if r.content else {}
     except Exception as e:
-        print("[moderation] analyze_image error:", e)
-        # Ikiwa detector imeshindwa kabisa kufanya kazi, ni salama zaidi
-        # kutuma kwenye manual_review badala ya kuruhusu moja kwa moja
-        # au kukataa moja kwa moja.
-        return -1.0, ["ERROR:" + str(e)]
+        return _fail_result(f"sightengine_error:{e}")
 
+    if r.status_code != 200 or data.get("status") == "failure":
+        return _fail_result(f"sightengine_http:{r.status_code}")
 
-def analyze_video(video_path, num_frames=VIDEO_FRAMES_TO_SAMPLE):
-    """
-    Chukua frames kadhaa kutoka video na uzichambue kama picha.
-    Rudisha (score ya juu zaidi kati ya frames zote, labels zilizogundulika).
-    """
-    try:
-        import cv2
-    except ImportError as e:
-        print("[moderation] opencv haijasakinishwa:", e)
-        return -1.0, ["ERROR: opencv-python-headless haijasakinishwa"]
-
-    cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened():
-        return -1.0, ["ERROR: video haikuweza kufunguliwa"]
-
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-    if total_frames <= 0:
-        cap.release()
-        return -1.0, ["ERROR: video haina frames"]
-
-    # Chagua frame indices zilizosambaa sawasawa kwenye video nzima
-    # (tunaepuka frame ya kwanza kabisa na ya mwisho kabisa mara nyingi
-    # ni nyeusi/intro)
-    step = max(total_frames // (num_frames + 1), 1)
-    frame_indices = [step * (i + 1) for i in range(num_frames)]
-    frame_indices = [i for i in frame_indices if i < total_frames]
-
-    best_score = 0.0
-    all_labels = []
-
-    tmp_dir = tempfile.mkdtemp(prefix="nsfw_frames_")
-    try:
-        for idx in frame_indices:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
-            success, frame = cap.read()
-            if not success:
-                continue
-
-            frame_path = os.path.join(tmp_dir, f"frame_{idx}.jpg")
-            cv2.imwrite(frame_path, frame)
-
-            score, labels = analyze_image(frame_path)
-            if score < 0:
-                # error kwenye frame hii - endelea na nyingine
-                continue
-            if score > best_score:
-                best_score = score
-            all_labels.extend(labels)
-
-            try:
-                os.remove(frame_path)
-            except OSError:
-                pass
-
-            # Kama tumeshapata ukiukaji wa wazi kabisa, hakuna sababu
-            # ya kuendelea kuchambua frames zilizobaki (inaokoa muda)
-            if best_score >= REJECT_THRESHOLD:
-                break
-    finally:
-        cap.release()
+    nudity = data.get("nudity") or {}
+    score = 0.0
+    labels: List[str] = []
+    for name in (
+        "sexual_activity",
+        "sexual_display",
+        "erotica",
+        "very_suggestive",
+        "raw",
+        "partial",
+        "suggestive",
+    ):
+        val = nudity.get(name)
+        if val is None:
+            continue
         try:
-            os.rmdir(tmp_dir)
-        except OSError:
-            pass
-
-    return best_score, all_labels
-
-
-def moderate_media(file_path, media_type):
-    """
-    Kazi kuu itakayoitwa na app.py.
-
-    MODERATION IMEZIMWA (DISABLED) — post zote zinaidhinishwa moja kwa moja.
-    Ili kuwasha tena, ondoa return hapa chini na rudisha logic ya NudeNet.
-
-    Parameters
-    ----------
-    file_path : absolute path ya faili lililohifadhiwa serverini
-    media_type : 'image' au 'video'
-
-    Returns
-    -------
-    dict yenye:
-        decision : 'approved' | 'rejected' | 'manual_review'
-        score    : float (0..1, au -1 kama detector imeshindwa)
-        labels   : list ya majina ya sehemu zilizogundulika (kwa admin)
-    """
-    # ===== MODERATION DISABLED =====
-    return {"decision": "approved", "score": 0.0, "labels": []}
-
-    if not file_path or not os.path.isfile(file_path):
-        return {"decision": "approved", "score": 0.0, "labels": []}
-
-    if media_type == "image":
-        score, labels = analyze_image(file_path)
-    elif media_type == "video":
-        score, labels = analyze_video(file_path)
-    else:
-        return {"decision": "approved", "score": 0.0, "labels": []}
-
-    if score < 0:
-        # Detector imeshindwa kufanya kazi (mfano: model haipo, faili
-        # limeharibika). Salama zaidi ni kutuma kwa admin kuliko
-        # kuruhusu au kukataa moja kwa moja bila uhakika.
-        return {"decision": "manual_review", "score": score, "labels": labels}
+            v = float(val)
+        except (TypeError, ValueError):
+            continue
+        if v >= 0.15:
+            labels.append(f"{name}:{v:.2f}")
+        weight = 1.0 if name in ("sexual_activity", "sexual_display", "erotica", "raw") else 0.7
+        score = max(score, v * weight)
 
     if score >= REJECT_THRESHOLD:
         decision = "rejected"
@@ -244,5 +108,88 @@ def moderate_media(file_path, media_type):
         decision = "manual_review"
     else:
         decision = "approved"
-
     return {"decision": decision, "score": round(score, 4), "labels": labels}
+
+
+# -------------------- OpenAI --------------------
+
+def _openai_enabled() -> bool:
+    return bool((os.environ.get("OPENAI_API_KEY") or "").strip())
+
+
+def _check_openai(url: str) -> Dict[str, Any]:
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    try:
+        r = requests.post(
+            "https://api.openai.com/v1/moderations",
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "omni-moderation-latest",
+                "input": [
+                    {"type": "image_url", "image_url": {"url": url}},
+                ],
+            },
+            timeout=TIMEOUT_SECONDS,
+        )
+        data = r.json() if r.content else {}
+    except Exception as e:
+        return _fail_result(f"openai_error:{e}")
+
+    if r.status_code != 200:
+        return _fail_result(f"openai_http:{r.status_code}")
+
+    results = (data.get("results") or [{}])[0]
+    categories = results.get("categories") or {}
+    scores = results.get("category_scores") or {}
+    flagged = bool(results.get("flagged"))
+
+    sexual = float(scores.get("sexual") or 0)
+    labels = [k for k, v in categories.items() if v]
+    score = sexual
+    if flagged and score < REVIEW_THRESHOLD:
+        score = max(score, REVIEW_THRESHOLD)
+
+    if score >= REJECT_THRESHOLD or (flagged and sexual >= 0.5):
+        decision = "rejected"
+    elif score >= REVIEW_THRESHOLD or flagged:
+        decision = "manual_review"
+    else:
+        decision = "approved"
+    return {"decision": decision, "score": round(score, 4), "labels": labels}
+
+
+# -------------------- public API --------------------
+
+def moderate_media(file_path: str, media_type: str) -> Dict[str, Any]:
+    """
+    Called from posts.py after upload.
+    Without any API keys → approved (app keeps working).
+    """
+    if not file_path or media_type not in ("image", "video"):
+        return {"decision": "approved", "score": 0.0, "labels": []}
+
+    url = _public_url(file_path)
+    if not url.startswith("http"):
+        return _fail_result("no_public_url")
+
+    if _sightengine_enabled():
+        return _check_sightengine(url)
+
+    if _openai_enabled():
+        return _check_openai(url)
+
+    # Hakuna API — usizime app
+    return _fail_result("no_api_configured")
+
+
+def analyze_image(image_path: str) -> Tuple[float, List[str]]:
+    r = moderate_media(image_path, "image")
+    return float(r.get("score") or 0), list(r.get("labels") or [])
+
+
+def analyze_video(video_path: str, num_frames: int = 6) -> Tuple[float, List[str]]:
+    r = moderate_media(video_path, "video")
+    return float(r.get("score") or 0), list(r.get("labels") or [])

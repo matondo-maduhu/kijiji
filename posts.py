@@ -873,14 +873,26 @@ def register_posts_routes(app):
 
             media_type = 'video' if is_video else 'image'
 
-        # ================= NSFW MODERATION (IMEZIMWA) =================
-        # Moderate imezimwa: post zote zinaidhinishwa moja kwa moja.
-        # Ili kuwasha tena, rudisha moderate_media() call hapa.
+        # ================= NSFW MODERATION (Sightengine) =================
         moderation_result = {'decision': 'approved', 'score': 0.0, 'labels': []}
-        detector_decision = 'approved'
-        nsfw_score = 0.0
-        nsfw_labels = []
-        moderation_status = 'approved'
+        if file_path and media_type in ('image', 'video'):
+            try:
+                from moderation import moderate_media
+                moderation_result = moderate_media(file_path, media_type) or moderation_result
+            except Exception as e:
+                print('[create_post] moderate_media error:', e)
+                # Detector failed → manual_review (safer than auto-approve)
+                moderation_result = {'decision': 'manual_review', 'score': -1.0, 'labels': []}
+
+        detector_decision = moderation_result.get('decision') or 'approved'
+        nsfw_score = float(moderation_result.get('score') or 0)
+        nsfw_labels = moderation_result.get('labels') or []
+        if detector_decision == 'rejected':
+            moderation_status = 'rejected'
+        elif detector_decision == 'manual_review':
+            moderation_status = 'manual_review'
+        else:
+            moderation_status = 'approved'
 
         # ================= AUTO CATEGORY =================
 
