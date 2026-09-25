@@ -569,7 +569,7 @@ def register_chat_routes(app):
                     WHERE pc.user_id = me_id.uid AND pc.other_user_id = u.id
                 ) AS is_pinned
             FROM users u
-            JOIN (SELECT ? AS uid) me_id
+            CROSS JOIN (SELECT ? AS uid) me_id
             WHERE u.id IN (
                 SELECT sender_id FROM private_messages WHERE receiver_id = ?
                 UNION
