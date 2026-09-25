@@ -375,6 +375,8 @@ def register_profile_routes(app):
 
 
         # Hakikisha columns muhimu zipo (DB ya zamani inaweza kukosa)
+        # Columns ziko kwenye init_db (Neon). ALTER hapa ni fallback tu.
+        # Muhimu: baada ya error lazima rollback — vinginevyo PG inaua transaction.
         for col, typ in [
             ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
             ('full_name', 'TEXT'),
@@ -408,10 +410,14 @@ def register_profile_routes(app):
             ('blogger', 'TEXT'),
         ]:
             try:
-                conn.execute(f'ALTER TABLE users ADD COLUMN {col} {typ}')
+                # PostgreSQL supports IF NOT EXISTS
+                conn.execute(f'ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {typ}')
                 conn.commit()
             except Exception:
-                pass
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
 
         if request.method == 'POST':
             try:

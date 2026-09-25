@@ -215,13 +215,20 @@ class CompatConnection:
                 else:
                     cur.execute(adapted)
                 return CompatCursor(cur, self)
-        if params is not None:
-            if isinstance(params, list):
-                params = tuple(params)
-            cur.execute(adapted, params)
-        else:
-            cur.execute(adapted)
-        return CompatCursor(cur, self)
+        try:
+            if params is not None:
+                if isinstance(params, list):
+                    params = tuple(params)
+                cur.execute(adapted, params)
+            else:
+                cur.execute(adapted)
+            return CompatCursor(cur, self)
+        except Exception:
+            try:
+                self._conn.rollback()
+            except Exception:
+                pass
+            raise
 
     def cursor(self):
         return CompatCursor(self._conn.cursor(cursor_factory=_DictCursor), self)
