@@ -41,7 +41,36 @@ def allowed_badge_file(filename):
 def _adapt_sql(sql: str) -> str:
     if not sql:
         return sql
-    s = sql.replace("?", "%s")
+    # Usibadilishe "?" ndani ya maoni (-- ...) — vinginevyo psycopg2
+    # inaona %s za ziada → IndexError: tuple index out of range
+    lines = []
+    for line in sql.splitlines():
+        if "--" in line:
+            code, comment = line.split("--", 1)
+            lines.append(code + "--" + comment.replace("?", ""))
+        else:
+            lines.append(line)
+    s = "\n".join(lines)
+    s = s.replace("?", "%s")
+    # Escape lone % (LIKE patterns) but keep %s placeholders
+    out = []
+    i = 0
+    n = len(s)
+    while i < n:
+        if s[i] == "%":
+            if i + 1 < n and s[i + 1] == "s":
+                out.append("%s")
+                i += 2
+            elif i + 1 < n and s[i + 1] == "%":
+                out.append("%%")
+                i += 2
+            else:
+                out.append("%%")
+                i += 1
+        else:
+            out.append(s[i])
+            i += 1
+    s = "".join(out)
     if re.search(r"INSERT\s+OR\s+IGNORE\s+INTO", s, re.I):
         s = re.sub(r"INSERT\s+OR\s+IGNORE\s+INTO", "INSERT INTO", s, flags=re.I)
         if "ON CONFLICT" not in s.upper():
@@ -49,6 +78,7 @@ def _adapt_sql(sql: str) -> str:
     s = re.sub(r"\s+COLLATE\s+NOCASE", "", s, flags=re.I)
     s = re.sub(r"datetime\s*\(\s*'now'\s*\)", "NOW()", s, flags=re.I)
     return s
+
 
 
 class CompatCursor:
