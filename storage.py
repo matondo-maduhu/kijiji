@@ -98,7 +98,9 @@ def upload_fileobj(fileobj: BinaryIO, key: str, content_type: Optional[str] = No
             key,
             ExtraArgs={"ContentType": content_type},
         )
-        return media_url(key)
+        # Store KEY in DB (not full URL) so templates /static/uploads/KEY still
+        # can be rewritten via media_url / serve route.
+        return key
     local_name = key.replace("/", "_")
     local_path = os.path.join(LOCAL_UPLOAD_FOLDER, local_name)
     fileobj.seek(0)

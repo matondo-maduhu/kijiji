@@ -378,5 +378,40 @@ def api_kijiji():
 register_community_routes(app)
 register_admin_routes(app)
 
+
+# ----- R2 / media: rewrite legacy /static/uploads/<key> → public R2 URL -----
+@app.route('/static/uploads/<path:filename>')
+def serve_r2_or_upload(filename):
+    """Templates still use /static/uploads/{{ file_path }}.
+    If file_path is an R2 key or full URL, redirect to R2 public URL.
+    """
+    from flask import redirect, send_from_directory, abort
+    try:
+        from storage import media_url, r2_configured, LOCAL_UPLOAD_FOLDER
+    except ImportError:
+        LOCAL_UPLOAD_FOLDER = UPLOAD_FOLDER
+        def media_url(x):
+            return '/static/uploads/' + str(x).lstrip('/')
+        def r2_configured():
+            return False
+
+    if not filename:
+        abort(404)
+    # Accidentally concatenated full URL: /static/uploads/https://...
+    if filename.startswith('http://') or filename.startswith('https://'):
+        return redirect(filename, code=302)
+    url = media_url(filename)
+    if url.startswith('http://') or url.startswith('https://'):
+        return redirect(url, code=302)
+    # Local fallback
+    import os
+    local = os.path.join(LOCAL_UPLOAD_FOLDER, filename.replace('/', '_'))
+    folder = os.path.dirname(local) or LOCAL_UPLOAD_FOLDER
+    name = os.path.basename(local)
+    if os.path.isfile(local):
+        return send_from_directory(folder, name)
+    abort(404)
+
+
 if __name__ == '__main__':
     app.run(debug=True)

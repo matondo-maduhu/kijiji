@@ -77,6 +77,22 @@ def _adapt_sql(sql: str) -> str:
             s = s.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING"
     s = re.sub(r"\s+COLLATE\s+NOCASE", "", s, flags=re.I)
     s = re.sub(r"datetime\s*\(\s*'now'\s*\)", "NOW()", s, flags=re.I)
+
+    def _sqlite_datetime_mod(match):
+        mod = match.group(1).strip()
+        sign = "-" if mod.startswith("-") else "+"
+        body = mod.lstrip("+-").strip()
+        bits = body.split()
+        if len(bits) >= 2:
+            return f"(NOW() {sign} INTERVAL '{bits[0]} {bits[1]}')"
+        return "NOW()"
+
+    s = re.sub(
+        r"datetime\(\s*'now'\s*,\s*'([^']+)'\s*\)",
+        _sqlite_datetime_mod,
+        s,
+        flags=re.I,
+    )
     return s
 
 
@@ -121,12 +137,19 @@ class CompatCursor:
                     self._cur.execute(adapted)
                 self.rowcount = self._cur.rowcount
                 return self
-        if params is not None:
-            self._cur.execute(adapted, params)
-        else:
-            self._cur.execute(adapted)
-        self.rowcount = self._cur.rowcount
-        return self
+        try:
+            if params is not None:
+                self._cur.execute(adapted, params)
+            else:
+                self._cur.execute(adapted)
+            self.rowcount = self._cur.rowcount
+            return self
+        except Exception:
+            try:
+                self._conn._conn.rollback()
+            except Exception:
+                pass
+            raise
 
     def executemany(self, sql, seq_of_params):
         self._cur.executemany(_adapt_sql(sql), seq_of_params)
@@ -432,6 +455,17 @@ def init_db():
         run(s)
     cur.close()
     raw.close()
+    
+    # Extra columns used by app but may be missing
+    for alter in [
+        "ALTER TABLE comments ADD COLUMN IF NOT EXISTS linkup_id INTEGER",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS facebook_id TEXT",
+    ]:
+        try:
+            cur.execute(alter)
+        except Exception as e:
+            print("[db init alter]", e)
+
     print("[db] init_db OK (Neon PostgreSQL)")
 
 
