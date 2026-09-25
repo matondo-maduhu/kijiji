@@ -4,7 +4,6 @@ posts.py — Feed, create/edit/delete posts, likes, comments, shares, status/sto
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import os
-import sqlite3
 import time
 import secrets
 import uuid
@@ -19,6 +18,7 @@ import requests
 from io import BytesIO
 
 from db import get_db_connection, UPLOAD_FOLDER, UPLOAD_BADGES_FOLDER, BASE_DIR
+from storage import upload_werkzeug_file, upload_local_path, media_url, delete_object
 from helpers import (
     login_required, now_tz, allowed_file, avatar_url, notify_user, create_notification,
     publish_due_scheduled_posts, muted_ids_for, save_post_hashtags, extract_hashtags,
@@ -868,15 +868,7 @@ def register_posts_routes(app):
                 flash('Aina ya file hairuhusiwi. Tumia picha au video.')
                 return redirect(url_for('home'))
 
-            unique_filename = f"{int(time.time())}_{filename}"
-
-            file.save(
-                os.path.join(
-                    app.config.get('UPLOAD_FOLDER', UPLOAD_FOLDER),
-                    unique_filename
-                )
-            )
-
+            unique_filename = upload_werkzeug_file(file, prefix='posts')
             file_path = unique_filename
 
             media_type = 'video' if is_video else 'image'
@@ -1745,8 +1737,7 @@ def register_posts_routes(app):
             if not is_video and not is_image:
                 flash('Tumia picha au video tu')
                 return redirect(url_for('home'))
-            unique = f"status_{int(time.time())}_{filename}"
-            file.save(os.path.join(app.config.get('UPLOAD_FOLDER', UPLOAD_FOLDER), unique))
+            unique = upload_werkzeug_file(file, prefix='statuses')
             file_path = unique
             media_type = 'video' if is_video else 'image'
         elif not content:
@@ -1759,7 +1750,7 @@ def register_posts_routes(app):
                 "INSERT INTO statuses (user_id, content, file_path, media_type, music_path, created_at) VALUES (?, ?, ?, ?, ?, ?)",
                 (session['user_id'], content or None, file_path, media_type, music_path, now_tz())
             )
-        except sqlite3.OperationalError:
+        except Exception:
             # fallback kama column haipo bado
             conn.execute(
                 "INSERT INTO statuses (user_id, content, file_path, media_type, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -2048,7 +2039,7 @@ def register_posts_routes(app):
                  'status_reply',
                  st_file if st_file else None)
             )
-        except sqlite3.OperationalError:
+        except Exception:
             try:
                 conn.execute(
                     """
@@ -2059,7 +2050,7 @@ def register_posts_routes(app):
                     (me, row['user_id'], msg, now_tz(), status_id,
                      'status_reply')
                 )
-            except sqlite3.OperationalError:
+            except Exception:
                 conn.execute(
                     """
                     INSERT INTO private_messages

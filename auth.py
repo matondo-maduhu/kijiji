@@ -28,9 +28,8 @@ except ImportError:
     google_requests = None
 
 from db import get_db_connection
-from email_service import send_otp_email  # HTTPS (Brevo), si SMTP
 from helpers import (
-    generate_otp, sanitize_username,
+    generate_otp, send_otp_email, sanitize_username,
     base_username_from_email, username_is_taken, suggest_usernames,
     apply_user_language, save_user_language, now_tz,
     SUPPORTED_LANGUAGES

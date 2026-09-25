@@ -17,6 +17,7 @@ from werkzeug.utils import secure_filename
 import requests
 
 from db import get_db_connection, UPLOAD_FOLDER, BASE_DIR
+from storage import upload_werkzeug_file, upload_local_path, media_url, delete_object
 from helpers import (
     login_required, now_tz, allowed_file, notify_user, create_notification,
     publish_due_scheduled_posts, muted_ids_for, save_post_hashtags,
@@ -671,7 +672,7 @@ def register_kijiji_routes(app):
             id_document_path = os.path.join(upload_folder, unique_filename)
 
             # ====================== 12. HIFADHI FILE ======================
-            file.save(id_document_path)
+            id_document_path = upload_werkzeug_file(file, prefix='badges')
 
             # ====================== 13. HAKIKI FILE IMEHIFADHIWA ======================
             if not os.path.exists(id_document_path):

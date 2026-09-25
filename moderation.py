@@ -1,3 +1,9 @@
+try:
+    from storage import download_to_bytes, media_url
+except ImportError:
+    download_to_bytes = None
+    media_url = None
+
 """
 moderation.py
 ==============

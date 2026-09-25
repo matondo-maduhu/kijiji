@@ -17,6 +17,7 @@ from werkzeug.utils import secure_filename
 import requests
 
 from db import get_db_connection, UPLOAD_FOLDER, BASE_DIR
+from storage import upload_werkzeug_file, upload_local_path, media_url, delete_object
 from helpers import (
     login_required, now_tz, allowed_file, notify_user, create_notification,
     publish_due_scheduled_posts, muted_ids_for, save_post_hashtags,
@@ -146,7 +147,7 @@ def register_linkup_routes(app):
                 if ext in IMAGE_EXTS:
                     fname = secure_filename(file.filename)
                     unique = f"linkup_{me}_{int(time.time())}_{fname}"
-                    file.save(os.path.join(upload_dir, unique))
+                    unique = upload_werkzeug_file(file, prefix='linkups')
                     profile_pic = unique
 
             form_data = {
@@ -482,7 +483,7 @@ def register_linkup_routes(app):
                 if ext in IMAGE_EXTS:
                     fname = secure_filename(file.filename)
                     unique = f"linkup_{me}_{int(time.time())}_{fname}"
-                    file.save(os.path.join(upload_dir, unique))
+                    unique = upload_werkzeug_file(file, prefix='linkups')
                     profile_pic = unique
 
             conn.execute(
@@ -668,8 +669,7 @@ def register_linkup_routes(app):
                         )
                         os.makedirs(upload_folder, exist_ok=True)
                         unique_filename = f"linkup_{linkup_id}_user_{me}_{uuid.uuid4().hex}.{extension}"
-                        id_document_path = os.path.join(upload_folder, unique_filename)
-                        file.save(id_document_path)
+                        id_document_path = upload_werkzeug_file(file, prefix='badges')
 
         try:
             conn.execute(

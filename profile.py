@@ -20,6 +20,7 @@ import requests
 from io import BytesIO
 
 from db import get_db_connection, UPLOAD_FOLDER, UPLOAD_BADGES_FOLDER, BASE_DIR
+from storage import upload_werkzeug_file, upload_local_path, media_url, delete_object
 from helpers import (
     login_required, now_tz, allowed_file, avatar_url, notify_user, create_notification,
     publish_due_scheduled_posts, muted_ids_for, save_post_hashtags, extract_hashtags,
@@ -450,17 +451,13 @@ def register_profile_routes(app):
                 profile_pic = None
                 file = request.files.get('profile_pic')
                 if file and file.filename and allowed_file(file.filename):
-                    filename = secure_filename(file.filename)
-                    unique_filename = f"profile_{user_id}_{int(time.time())}_{filename}"
-                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
+                    unique_filename = upload_werkzeug_file(file, prefix='profiles')
                     profile_pic = unique_filename
 
                 cover_photo = None
                 cover_file = request.files.get('cover_photo')
                 if cover_file and cover_file.filename and allowed_file(cover_file.filename):
-                    cover_filename = secure_filename(cover_file.filename)
-                    unique_cover = f"cover_{user_id}_{int(time.time())}_{cover_filename}"
-                    cover_file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_cover))
+                    unique_cover = upload_werkzeug_file(cover_file, prefix='covers')
                     cover_photo = unique_cover
 
                 # Join year: jaribu created_at (kama ipo), vinginevyo form value

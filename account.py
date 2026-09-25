@@ -18,6 +18,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from db import get_db_connection, UPLOAD_FOLDER, BASE_DIR
+from storage import upload_werkzeug_file, upload_local_path, media_url, delete_object
 from helpers import (
     login_required, now_tz, allowed_file, notify_user, create_notification,
     publish_due_scheduled_posts, muted_ids_for, save_post_hashtags,
@@ -1319,8 +1320,7 @@ def register_account_routes(app):
         )
         if not is_video and not is_image and not is_doc:
             return None, None, 'Aina ya file hairuhusiwi'
-        unique_filename = f"draft_{session['user_id']}_{int(time.time())}_{filename}"
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
+        unique_filename = upload_werkzeug_file(file, prefix='drafts')
         if is_video:
             media_type = 'video'
         elif is_image:

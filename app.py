@@ -96,7 +96,7 @@ VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "BDLkkmrKM007eSEby3amhKG3o
 VAPID_CLAIMS = {"sub": "mailto:keyaramadhan0@gmail.com"}
 
 app = Flask(__name__)
-app.secret_key = 'siri_yangu_ya_mradi_huu_123'
+app.secret_key = os.environ.get('SECRET_KEY', 'siri_yangu_ya_mradi_huu_123')
 
 # ========== PERMANENT SESSION (kama TikTok) ==========
 app.permanent_session_lifetime = timedelta(days=90)
@@ -129,8 +129,8 @@ init_helpers(
     vapid_private=VAPID_PRIVATE_KEY,
     vapid_public=VAPID_PUBLIC_KEY,
     vapid_claims=VAPID_CLAIMS,
-    gmail_address="matondomaduhu135@gmail.com",
-    gmail_app_password="neftrxmcxidjourc",
+    gmail_address=os.environ.get("MAIL_FROM_EMAIL", "matondomaduhu135@gmail.com"),
+    gmail_app_password=os.environ.get("GMAIL_APP_PASSWORD", ""),
 )
 
 # Context processors & filters (must stay on real app)

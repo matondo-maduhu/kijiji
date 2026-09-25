@@ -21,6 +21,21 @@ except ImportError:
     qrcode = ERROR_CORRECT_H = Image = ImageDraw = ImageFont = None
 
 from db import get_db_connection, BASE_DIR, DB_PATH, UPLOAD_FOLDER, UPLOAD_BADGES_FOLDER
+try:
+    from storage import media_url, upload_werkzeug_file, upload_local_path, r2_configured
+except ImportError:
+    def media_url(x):
+        if not x: return ''
+        s = str(x)
+        if s.startswith('http'): return s
+        return '/static/uploads/' + s.lstrip('/')
+    def upload_werkzeug_file(f, prefix='uploads'):
+        raise RuntimeError('storage.py missing')
+    def upload_local_path(p, prefix='uploads'):
+        raise RuntimeError('storage.py missing')
+    def r2_configured():
+        return False
+
 
 app = None
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "HWkzToktm9g98f8srg5Lo6MPDggTrxwGFfwzLnq7XYQ")
@@ -170,24 +185,26 @@ def save_user_language(user_id, language):
         print('[language] save error:', e)
 
 def avatar_url(pic, name=None):
-    """URL ya profile pic: Google https, local upload, au letter-avatar."""
+    """URL ya profile pic: R2/public https, local upload, au letter-avatar."""
     if pic:
         s = str(pic).strip()
         if s.startswith('http://') or s.startswith('https://'):
             return s
-        # local filename
+        # R2 key or legacy filename
         try:
-            return url_for('static', filename='uploads/' + s)
+            return media_url(s)
         except Exception:
-            return '/static/uploads/' + s
-    # Hakuna picha → letter avatar (kama Google default A, B, C...)
+            try:
+                return url_for('static', filename='uploads/' + s)
+            except Exception:
+                return '/static/uploads/' + s
     label = (name or 'U').strip() or 'U'
-    # ui-avatars: herufi + rangi tofauti kulingana na jina
     return (
         'https://ui-avatars.com/api/?name='
         + quote(label)
         + '&background=random&color=fff&size=128&bold=true'
     )
+
 
 
 def get_profile_public_url(username):
@@ -930,10 +947,20 @@ def suggest_usernames(conn, desired, limit=6, exclude_email=None):
 
 
 def send_otp_email(to_email, otp, purpose="register"):
+    """Tuma OTP via Brevo HTTPS (email_service). Fallback SMTP ikiwa Brevo haipo."""
+    try:
+        from email_service import send_otp_email as brevo_send
+        ok = brevo_send(to_email, otp, purpose=purpose)
+        if ok:
+            return True
+        print("[MAIL] Brevo failed, trying SMTP fallback...")
+    except Exception as e:
+        print("[MAIL] Brevo import/call error:", e)
+
+    # SMTP fallback (local only — Render free blocks SMTP)
     if purpose == "register":
         subject = "OTP yako ya Usajili - Thibitisha Akaunti"
-        message = f"""
-Habari,
+        message = f"""Habari,
 
 OTP yako ya kuthibitisha akaunti ni:
 
@@ -946,8 +973,7 @@ Asante.
 """
     else:
         subject = "OTP ya Kubadilisha Password"
-        message = f"""
-Habari,
+        message = f"""Habari,
 
 OTP yako ya kubadilisha password ni:
 
@@ -958,13 +984,11 @@ Usishiriki nambari hii na mtu yeyote.
 
 Asante.
 """
-
     msg = MIMEMultipart()
     msg['From'] = GMAIL_ADDRESS
     msg['To'] = to_email
     msg['Subject'] = subject
     msg.attach(MIMEText(message, 'plain'))
-
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
@@ -975,6 +999,8 @@ Asante.
     except Exception as e:
         print("Error sending email:", str(e))
         return False
+
+
 
 def login_required(f):
     @wraps(f)

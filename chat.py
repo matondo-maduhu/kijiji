@@ -17,6 +17,7 @@ from werkzeug.utils import secure_filename
 import requests
 
 from db import get_db_connection, UPLOAD_FOLDER, BASE_DIR
+from storage import upload_werkzeug_file, upload_local_path, media_url, delete_object
 from helpers import (
     login_required, now_tz, allowed_file, notify_user, create_notification,
     publish_due_scheduled_posts, muted_ids_for, save_post_hashtags,
@@ -93,18 +94,7 @@ def register_chat_routes(app):
             if ext in ALLOWED_EXTENSIONS:
                 filename = secure_filename(file.filename)
 
-                unique = (
-                    f"chat_{session['user_id']}_"
-                    f"{int(time.time())}_{filename}"
-                )
-
-                file.save(
-                    os.path.join(
-                        app.config['UPLOAD_FOLDER'],
-                        unique
-                    )
-                )
-
+                unique = upload_werkzeug_file(file, prefix='chat')
                 file_path = unique
 
                 if filename.startswith('voice_') or ext in ('mp3', 'wav', 'aac', 'm4a', 'opus'):
