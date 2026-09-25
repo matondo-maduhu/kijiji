@@ -18,20 +18,20 @@ if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = "postgresql://" + DATABASE_URL[len("postgres://"):]
 
 _psycopg2 = None
-_RealDictCursor = None
+_DictCursor = None
 OperationalError = Exception
 
 
 def _import_psycopg2():
-    global _psycopg2, _RealDictCursor, OperationalError
+    global _psycopg2, _DictCursor, OperationalError
     if _psycopg2 is None:
         import psycopg2
-        from psycopg2.extras import RealDictCursor
+        from psycopg2.extras import DictCursor
         from psycopg2 import OperationalError as _OE
         _psycopg2 = psycopg2
-        _RealDictCursor = RealDictCursor
+        _DictCursor = DictCursor
         OperationalError = _OE
-    return _psycopg2, _RealDictCursor
+    return _psycopg2, _DictCursor
 
 
 def allowed_badge_file(filename):
@@ -159,7 +159,7 @@ class CompatConnection:
         self.row_factory = None
 
     def execute(self, sql, params=None):
-        cur = self._conn.cursor(cursor_factory=_RealDictCursor)
+        cur = self._conn.cursor(cursor_factory=_DictCursor)
         adapted = _adapt_sql(sql)
         is_insert = bool(re.match(r"\s*INSERT\s+", adapted, re.I))
         has_returning = "RETURNING" in adapted.upper()
@@ -184,7 +184,7 @@ class CompatConnection:
                             compat.lastrowid = None
                 return compat
             except Exception:
-                cur = self._conn.cursor(cursor_factory=_RealDictCursor)
+                cur = self._conn.cursor(cursor_factory=_DictCursor)
                 if params is not None:
                     if isinstance(params, list):
                         params = tuple(params)
@@ -201,7 +201,7 @@ class CompatConnection:
         return CompatCursor(cur, self)
 
     def cursor(self):
-        return CompatCursor(self._conn.cursor(cursor_factory=_RealDictCursor), self)
+        return CompatCursor(self._conn.cursor(cursor_factory=_DictCursor), self)
 
     def commit(self):
         self._conn.commit()
@@ -226,8 +226,8 @@ class CompatConnection:
 def get_db_connection():
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL is not set. Add Neon connection string in Render Environment.")
-    psycopg2, RealDictCursor = _import_psycopg2()
-    raw = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    psycopg2, DictCursor = _import_psycopg2()
+    raw = psycopg2.connect(DATABASE_URL, cursor_factory=DictCursor)
     raw.autocommit = False
     return CompatConnection(raw)
 
@@ -236,7 +236,7 @@ def init_db():
     if not DATABASE_URL:
         print("[db] DATABASE_URL missing — skip init_db")
         return
-    psycopg2, RealDictCursor = _import_psycopg2()
+    psycopg2, DictCursor = _import_psycopg2()
     raw = psycopg2.connect(DATABASE_URL)
     raw.autocommit = True
     cur = raw.cursor()
