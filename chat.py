@@ -805,43 +805,124 @@ def register_chat_routes(app):
 
     @app.route('/call/signal', methods=['POST'])
     def call_signal():
+        """WebRTC signaling: offer | answer | ice | hangup | reject | busy | missed."""
         if 'user_id' not in session:
             return jsonify({'success': False}), 401
 
         data = request.get_json(silent=True) or {}
         to_user_id = data.get('to_user_id')
-        sig_type = data.get('type')  # offer | answer | ice | hangup | reject | busy
+        sig_type = (data.get('type') or '').strip().lower()
         payload = data.get('payload') or {}
+        if not isinstance(payload, dict):
+            payload = {}
+
+        try:
+            to_user_id = int(to_user_id)
+        except (TypeError, ValueError):
+            to_user_id = None
 
         if not to_user_id or not sig_type:
             return jsonify({'success': False, 'error': 'missing fields'}), 400
 
         me = session['user_id']
-        payload_str = json.dumps(payload)
+        if to_user_id == me:
+            return jsonify({'success': False, 'error': 'invalid peer'}), 400
 
         conn = get_db_connection()
 
-        # Ikiwa ni hangup/reject/busy → mark offers za zamani kati ya users hawa kama read
-        if sig_type in ('hangup', 'reject', 'busy'):
+        # Enrich offer with caller profile (jina + picha + badge)
+        if sig_type == 'offer':
+            me_row = conn.execute(
+                'SELECT username, full_name, profile_pic, is_verified FROM users WHERE id = ?',
+                (me,)
+            ).fetchone()
+            if me_row:
+                payload.setdefault('from_username', me_row['username'] or '')
+                payload.setdefault(
+                    'from_full_name',
+                    (me_row['full_name'] or me_row['username'] or '')
+                )
+                payload.setdefault('from_avatar', me_row['profile_pic'] or '')
+                payload.setdefault('from_verified', bool(me_row['is_verified'] or 0))
+                payload.setdefault('from_user_id', me)
+
+        # On end signals: clear pending offer/answer/ice between the two users
+        if sig_type in ('hangup', 'reject', 'busy', 'missed'):
             conn.execute(
-                '''UPDATE call_signals SET is_read = 1
-                   WHERE ((from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?))
+                """UPDATE call_signals SET is_read = 1
+                   WHERE ((from_user_id = ? AND to_user_id = ?)
+                       OR (from_user_id = ? AND to_user_id = ?))
                      AND type IN ('offer', 'answer', 'ice')
-                     AND is_read = 0''',
+                     AND is_read = 0""",
                 (me, to_user_id, to_user_id, me)
             )
 
+            reason = (payload.get('reason') or sig_type).lower()
+            is_video = bool(payload.get('video'))
+            duration = int(payload.get('duration') or 0)
+
+            if sig_type == 'reject' or reason == 'reject':
+                msg_text = '📞 {} call imekataliwa'.format('Video' if is_video else 'Voice')
+            elif sig_type == 'busy' or reason == 'busy':
+                msg_text = '📞 {} call — busy'.format('Video' if is_video else 'Voice')
+            elif sig_type == 'missed' or reason in ('missed', 'timeout', 'no_answer'):
+                msg_text = '📞 Missed {} call'.format('video' if is_video else 'voice')
+            elif duration > 0:
+                m, s = divmod(duration, 60)
+                msg_text = '📞 {} call · {}:{}'.format(
+                    'Video' if is_video else 'Voice', m, str(s).zfill(2)
+                )
+            else:
+                msg_text = '📞 {} call iliisha'.format('Video' if is_video else 'Voice')
+
+            recent = conn.execute(
+                """SELECT id FROM private_messages
+                   WHERE sender_id = ? AND receiver_id = ?
+                     AND media_type = 'call'
+                     AND message = ?
+                     AND created_at >= datetime('now', '-15 seconds')
+                   LIMIT 1""",
+                (me, to_user_id, msg_text)
+            ).fetchone()
+            if not recent:
+                try:
+                    conn.execute(
+                        """INSERT INTO private_messages
+                           (sender_id, receiver_id, message, is_read, is_delivered,
+                            file_path, media_type, created_at)
+                           VALUES (?, ?, ?, 0, 1, NULL, 'call', ?)""",
+                        (me, to_user_id, msg_text, now_tz())
+                    )
+                except Exception as e:
+                    print('[CALL] message insert error:', e)
+
+        payload_str = json.dumps(payload)
         conn.execute(
-            '''INSERT INTO call_signals (from_user_id, to_user_id, type, payload)
-               VALUES (?, ?, ?, ?)''',
+            """INSERT INTO call_signals (from_user_id, to_user_id, type, payload)
+               VALUES (?, ?, ?, ?)""",
             (me, to_user_id, sig_type, payload_str)
         )
         conn.commit()
+
+        if sig_type == 'offer':
+            try:
+                kind = 'Video' if payload.get('video') else 'Voice'
+                uname = payload.get('from_username') or session.get('username') or 'Mtu'
+                notify_user(
+                    to_user_id,
+                    me,
+                    'call',
+                    '{} call kutoka @{}'.format(kind, uname)
+                )
+            except Exception as e:
+                print('[CALL] notify error:', e)
+
         conn.close()
         return jsonify({'success': True})
 
     @app.route('/call/signals')
     def get_call_signals():
+        """Poll WebRTC signals (dirisha 5 min)."""
         if 'user_id' not in session:
             return jsonify({'signals': []}), 401
 
@@ -850,16 +931,15 @@ def register_chat_routes(app):
 
         conn = get_db_connection()
 
-        # MUHIMU: is_read = 0 tu + za dakika 1 zilizopita (epuka stale offers)
         rows = conn.execute(
-            '''SELECT id, from_user_id, to_user_id, type, payload, created_at
+            """SELECT id, from_user_id, to_user_id, type, payload, created_at
                FROM call_signals
                WHERE to_user_id = ?
                  AND id > ?
                  AND is_read = 0
-                 AND created_at >= datetime('now', '-60 seconds')
+                 AND created_at >= datetime('now', '-5 minutes')
                ORDER BY id ASC
-               LIMIT 50''',
+               LIMIT 80""",
             (me, after_id)
         ).fetchall()
 
@@ -867,7 +947,7 @@ def register_chat_routes(app):
             ids = [r['id'] for r in rows]
             placeholders = ','.join('?' * len(ids))
             conn.execute(
-                f'UPDATE call_signals SET is_read = 1 WHERE id IN ({placeholders})',
+                'UPDATE call_signals SET is_read = 1 WHERE id IN ({})'.format(placeholders),
                 ids
             )
             conn.commit()
