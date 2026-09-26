@@ -653,7 +653,7 @@ def register_account_routes(app):
         try:
             send_web_push(
                 uid,
-                "Kijiji Tanzania - Test",
+                "DUTOZA - Test",
                 "Push inafanya kazi! ✅",
                 url="/notifications",
                 icon=None
