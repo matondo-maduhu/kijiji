@@ -318,7 +318,7 @@ def register_profile_routes(app):
             return redirect(url_for('home') if 'user_id' in session else url_for('login'))
 
         share_url = get_profile_public_url(username)
-        wa_text = quote(f"Angalia profile yangu kwenye Kijiji Tanzania: {share_url}")
+        wa_text = quote(f"Angalia profile yangu kwenye DUTOZA: {share_url}")
         wa_link = f"https://wa.me/?text={wa_text}"
         qr_img_url = url_for('profile_qr_png', username=username)
         qr_download_url = url_for('profile_qr_png', username=username, download=1)
