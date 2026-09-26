@@ -1913,7 +1913,7 @@ body.chat-dark {
   <source src="{{ url_for('static', filename='uploads/background.mp3') }}" type="audio/mpeg">
 </audio>
 
-<script src="https://meet.jit.si/external_api.js"></script>
+<script src="https://meet.ffmuc.net/external_api.js"></script>
 <audio id="ringtone" loop>
   <source src="{{ url_for('static', filename='uploads/ringtone.mp3') }}" type="audio/mpeg">
 </audio>
@@ -3350,18 +3350,18 @@ let endingLock = false;
 const endedCallIds = new Set();
 const CALL_RING_TIMEOUT_MS = 45000;
 const CALL_POLL_MS = 1000;
-const JITSI_DOMAIN = "meet.jit.si";
+const JITSI_DOMAIN = "meet.ffmuc.net";
 
 function newCallId() {
   return "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
 function roomNameForPeer(peerId) {
-  const a = Math.min(myUserId, peerId);
-  const b = Math.max(myUserId, peerId);
-  // deterministic room for the pair (+ call_id suffix when known)
-  const base = "KijijiTZ_" + a + "_" + b;
-  return activeCallId ? (base + "_" + activeCallId) : base;
+  const a = Math.min(Number(myUserId), Number(peerId));
+  const b = Math.max(Number(myUserId), Number(peerId));
+  // Room name: letters/numbers only (Jitsi-friendly)
+  const cid = (activeCallId || "room").toString().replace(/[^a-zA-Z0-9]/g, "");
+  return "KijijiTZ" + a + "x" + b + "x" + cid;
 }
 
 function resolveAvatarUrl(pic, name) {
@@ -3461,11 +3461,16 @@ function handleSignal(sig) {
   }
 
   if (type === "answer") {
-    // Callee joined — caller starts Jitsi if not yet
+    // Callee amekubali — caller tayari yuko Jitsi; sasisha status tu
     if (!callIsCaller) return;
-    if (callPhase !== "ringing_out") return;
     if (payload.call_id && activeCallId && payload.call_id !== activeCallId) return;
-    startJitsiMeeting();
+    stopRingtone();
+    clearTimeout(callRingTimeout);
+    callPhase = "active";
+    callConnected = true;
+    const st = document.getElementById("callStatus");
+    if (st) st.textContent = callIsVideo ? "Video call" : "Voice call";
+    if (!callTimerInterval) startCallTimer();
     return;
   }
 
@@ -3573,7 +3578,7 @@ function startCall(video) {
     }
   }, CALL_RING_TIMEOUT_MS);
 
-  // Invite peer (signaling only — media = Jitsi)
+  // Invite peer
   sendSignal("offer", {
     video: !!video,
     call_id: activeCallId,
@@ -3583,6 +3588,9 @@ function startCall(video) {
     from_avatar: typeof myAvatarUrl !== "undefined" ? myAvatarUrl : "",
     from_verified: !!(typeof myVerified !== "undefined" && myVerified)
   });
+
+  // Caller anaingia Jitsi KWANZA → anakuwa moderator (epuka "waiting for moderator")
+  startJitsiMeeting();
 }
 
 function acceptCall() {
@@ -3645,11 +3653,22 @@ function startJitsiMeeting() {
         startWithAudioMuted: false,
         startWithVideoMuted: !callIsVideo,
         prejoinPageEnabled: false,
+        prejoinConfig: { enabled: false },
         disableDeepLinking: true,
         enableWelcomePage: false,
         enableClosePage: false,
         disableInviteFunctions: true,
-        defaultLanguage: "en"
+        defaultLanguage: "en",
+        enableLobby: false,
+        lobby: { autoKnock: false, enableChat: false },
+        requireDisplayName: false,
+        enableInsecureRoomNameWarning: false,
+        notifications: [],
+        p2p: { enabled: true },
+        startSilent: false,
+        // Avoid auth / moderator prompts on public hosts
+        enableUserRolesBasedOnToken: false,
+        enableFeaturesBasedOnToken: false
       },
       interfaceConfigOverwrite: {
         TOOLBAR_BUTTONS: [
@@ -3660,7 +3679,8 @@ function startJitsiMeeting() {
         SHOW_WATERMARK_FOR_GUESTS: false,
         DEFAULT_REMOTE_DISPLAY_NAME: receiverFullName || receiverName || "Mtumiaji",
         MOBILE_APP_PROMO: false,
-        DISABLE_JOIN_LEAVE_NOTIFICATIONS: true
+        DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
+        AUTHENTICATION_ENABLE: false
       }
     });
 
