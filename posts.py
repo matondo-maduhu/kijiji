@@ -859,7 +859,7 @@ def register_posts_routes(app):
             is_image = ext in IMAGE_EXTS
 
             if is_video and size > MAX_VIDEO_BYTES:
-                flash('Video isizidi 24MB. Chagua video ndogo zaidi.')
+                flash('Video isizidi 100MB. Chagua video ndogo zaidi.')
                 return redirect(url_for('home'))
             if is_image and size > MAX_IMAGE_BYTES:
                 flash('Picha isizidi 24MB. Chagua picha ndogo zaidi.')
@@ -1741,7 +1741,7 @@ def register_posts_routes(app):
             is_video = ext in VIDEO_EXTS
             is_image = ext in IMAGE_EXTS
             if is_video and size > MAX_VIDEO_BYTES:
-                flash('Video isizidi 24MB')
+                flash('Video isizidi 100MB')
                 return redirect(url_for('home'))
             if is_image and size > MAX_IMAGE_BYTES:
                 flash('Picha isizidi 24MB')
