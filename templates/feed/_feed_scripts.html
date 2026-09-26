@@ -1010,9 +1010,9 @@ function assignFileToForm(file) {
 function onMediaPicked(sourceInput) {
     if (!sourceInput || !sourceInput.files || !sourceInput.files[0]) return;
     const file = sourceInput.files[0];
-    const MAX_MEDIA = 24 * 1024 * 1024;
+    const MAX_MEDIA = 100 * 1024 * 1024;
     if (file.size > MAX_MEDIA) {
-        alert('File isizidi 24MB. Chagua file ndogo zaidi.');
+        alert('File isizidi 100MB. Chagua file ndogo zaidi.');
         sourceInput.value = '';
         clearMediaPreview();
         return;
