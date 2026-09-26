@@ -562,7 +562,7 @@ def register_linkup_routes(app):
                     'addressdetails': 1,
                     'limit': 8,
                 },
-                headers={'User-Agent': 'KijijiTanzania/1.0 (linkup-places)'},
+                headers={'User-Agent': 'DUTOZA/1.0 (linkup-places)'},
                 timeout=8,
             )
             data = r.json() if r.status_code == 200 else []
