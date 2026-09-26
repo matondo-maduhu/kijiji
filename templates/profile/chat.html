@@ -1882,10 +1882,10 @@ body.chat-dark {
 <div class="chat-toast" id="chatToast"></div>
 
 <div class="call-overlay" id="callOverlay">
-  <div id="jitsiContainer"></div>
-  <button type="button" class="call-hangup-float" id="jitsiHangupBtn" onclick="hangupCall()" title="Funga">
-    <i class="fa-solid fa-phone-slash"></i>
-  </button>
+  <div class="call-video-wrap" id="callVideoWrap">
+    <video id="remoteVideo" autoplay playsinline></video>
+    <video id="localVideo" autoplay playsinline muted></video>
+  </div>
 
   <div class="call-ring-ui" id="callRingUI">
     <img class="call-avatar call-ring-pulse" id="callAvatar"
@@ -1913,7 +1913,6 @@ body.chat-dark {
   <source src="{{ url_for('static', filename='uploads/background.mp3') }}" type="audio/mpeg">
 </audio>
 
-<script src="https://meet.ffmuc.net/external_api.js"></script>
 <audio id="ringtone" loop>
   <source src="{{ url_for('static', filename='uploads/ringtone.mp3') }}" type="audio/mpeg">
 </audio>
@@ -3332,9 +3331,10 @@ document.addEventListener("keydown", event => {
   }
 });
 
-/* ===== JITSI CALLS (free + stable) ===== */
-let jitsiApi = null;
-let callPhase = "idle"; // idle | ringing_out | ringing_in | active | ending
+/* ===== WEBRTC + TURN (bure) — signaling = /call/signal ===== */
+let pc = null;
+let localStream = null;
+let callPhase = "idle";
 let callActive = false;
 let callConnected = false;
 let callIsVideo = false;
@@ -3346,22 +3346,39 @@ let callSignalPoll = null;
 let callTimerInterval = null;
 let callRingTimeout = null;
 let callSeconds = 0;
+let isMuted = false;
+let camOff = false;
+let pendingOffer = null;
 let endingLock = false;
 const endedCallIds = new Set();
 const CALL_RING_TIMEOUT_MS = 45000;
-const CALL_POLL_MS = 1000;
-const JITSI_DOMAIN = "meet.ffmuc.net";
+const CALL_POLL_MS = 800;
+
+/** STUN + free TURN (Open Relay) — muhimu kwa 4G/NAT */
+const iceServers = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    {
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject"
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject"
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject"
+    }
+  ]
+};
 
 function newCallId() {
   return "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
-function roomNameForPeer(peerId) {
-  const a = Math.min(Number(myUserId), Number(peerId));
-  const b = Math.max(Number(myUserId), Number(peerId));
-  // Room name: letters/numbers only (Jitsi-friendly)
-  const cid = (activeCallId || "room").toString().replace(/[^a-zA-Z0-9]/g, "");
-  return "KijijiTZ" + a + "x" + b + "x" + cid;
 }
 
 function resolveAvatarUrl(pic, name) {
@@ -3380,7 +3397,7 @@ function sendSignal(type, payload) {
   if (!peer) return Promise.resolve({});
   const body = Object.assign({}, payload || {});
   if (activeCallId && !body.call_id) body.call_id = activeCallId;
-  body.video = !!callIsVideo;
+  if (typeof body.video === "undefined") body.video = !!callIsVideo;
   return fetch("{{ url_for('call_signal') }}", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
@@ -3421,7 +3438,7 @@ function handleSignal(sig) {
   const sigCallId = payload.call_id || null;
 
   if (sigCallId && endedCallIds.has(sigCallId) && type !== "offer") return;
-  if (sigCallId && activeCallId && sigCallId !== activeCallId && type !== "offer") return;
+  if (sigCallId && activeCallId && sigCallId !== activeCallId && type !== "offer" && type !== "hangup" && type !== "reject" && type !== "missed" && type !== "busy") return;
 
   if (type === "offer") {
     if (callPhase !== "idle" && callPhase !== "ending") {
@@ -3433,6 +3450,7 @@ function handleSignal(sig) {
     }
     if (sigCallId && endedCallIds.has(sigCallId)) return;
 
+    pendingOffer = { fromId, payload };
     callPeerId = fromId;
     activeCallId = sigCallId || newCallId();
     callIsVideo = !!payload.video;
@@ -3461,16 +3479,17 @@ function handleSignal(sig) {
   }
 
   if (type === "answer") {
-    // Callee amekubali — caller tayari yuko Jitsi; sasisha status tu
-    if (!callIsCaller) return;
-    if (payload.call_id && activeCallId && payload.call_id !== activeCallId) return;
-    stopRingtone();
-    clearTimeout(callRingTimeout);
-    callPhase = "active";
-    callConnected = true;
-    const st = document.getElementById("callStatus");
-    if (st) st.textContent = callIsVideo ? "Video call" : "Voice call";
-    if (!callTimerInterval) startCallTimer();
+    if (!callIsCaller || !pc) return;
+    if (callPhase !== "ringing_out" && callPhase !== "connecting") return;
+    callPhase = "connecting";
+    pc.setRemoteDescription(new RTCSessionDescription(payload.sdp)).catch(err => console.error(err));
+    return;
+  }
+
+  if (type === "ice") {
+    if (!pc || !payload.candidate) return;
+    if (callPhase === "idle" || callPhase === "ending") return;
+    pc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch(() => {});
     return;
   }
 
@@ -3478,6 +3497,7 @@ function handleSignal(sig) {
     const relevant =
       fromId === callPeerId ||
       fromId === receiverId ||
+      (pendingOffer && fromId === pendingOffer.fromId) ||
       (sigCallId && sigCallId === activeCallId);
     if (!relevant) return;
     if (sigCallId) endedCallIds.add(sigCallId);
@@ -3515,27 +3535,28 @@ function showIncomingCall(isVideo, peerInfo) {
   pauseBgMusic();
   playRingtone();
   stopCallTimer();
-  setCallPeerUI(peerInfo);
+  setCallPeerUI(peerInfo || {
+    full_name: receiverFullName,
+    username: receiverName,
+    avatar: receiverAvatarUrl,
+    verified: receiverVerified
+  });
   document.getElementById("callStatus").textContent = isVideo ? "Video call inakuja..." : "Voice call inakuja...";
   document.getElementById("callTimer").classList.remove("show");
+  const vw = document.getElementById("callVideoWrap");
+  if (vw) vw.classList.remove("show");
+  const av = document.getElementById("callAvatar");
+  if (av) { av.style.display = "block"; av.classList.add("call-ring-pulse"); }
   document.getElementById("callActions").innerHTML = `
     <button type="button" class="call-btn reject" onclick="rejectCall()" title="Kataa"><i class="fa-solid fa-phone-slash"></i></button>
     <button type="button" class="call-btn accept" onclick="acceptCall()" title="Pokea"><i class="fa-solid fa-phone"></i></button>
   `;
-  const ov = document.getElementById("callOverlay");
-  ov.classList.remove("jitsi-live");
-  ov.classList.add("show");
-  document.getElementById("callRingUI").style.display = "";
-  document.getElementById("jitsiContainer").classList.remove("show");
+  document.getElementById("callOverlay").classList.add("show");
 }
 
-function startCall(video) {
+async function startCall(video) {
   if (callPhase !== "idle") {
     showToast("Tayari uko kwenye simu");
-    return;
-  }
-  if (typeof JitsiMeetExternalAPI === "undefined") {
-    showToast("Call module bado inapakia — jaribu tena sekunde chache");
     return;
   }
   endingLock = false;
@@ -3546,8 +3567,32 @@ function startCall(video) {
   callPhase = "ringing_out";
   callActive = true;
   callConnected = false;
+  pendingOffer = null;
   pauseBgMusic();
   stopCallTimer();
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true },
+      video: video ? { facingMode: "user", width: { ideal: 640 }, height: { ideal: 960 } } : false
+    });
+  } catch (e) {
+    showToast("Ruhusu microphone" + (video ? "/camera" : "") + " kwenye browser");
+    resetCallState();
+    return;
+  }
+
+  setupPeerConnection();
+  localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+  if (video) {
+    document.getElementById("localVideo").srcObject = localStream;
+    document.getElementById("callVideoWrap").classList.add("show");
+    document.getElementById("callAvatar").style.display = "none";
+  } else {
+    document.getElementById("callVideoWrap").classList.remove("show");
+    document.getElementById("callAvatar").style.display = "block";
+  }
 
   setCallPeerUI({
     full_name: receiverFullName,
@@ -3561,16 +3606,12 @@ function startCall(video) {
   document.getElementById("callActions").innerHTML = `
     <button type="button" class="call-btn hangup" onclick="hangupCall()" title="Funga"><i class="fa-solid fa-phone-slash"></i></button>
   `;
-  const ov = document.getElementById("callOverlay");
-  ov.classList.remove("jitsi-live");
-  ov.classList.add("show");
-  document.getElementById("callRingUI").style.display = "";
-  document.getElementById("jitsiContainer").classList.remove("show");
+  document.getElementById("callOverlay").classList.add("show");
   playRingtone();
 
   clearTimeout(callRingTimeout);
   callRingTimeout = setTimeout(() => {
-    if (callPhase === "ringing_out") {
+    if (callPhase === "ringing_out" && !callConnected) {
       const cid = activeCallId;
       sendSignal("missed", { reason: "timeout", call_id: cid });
       if (cid) endedCallIds.add(cid);
@@ -3578,149 +3619,147 @@ function startCall(video) {
     }
   }, CALL_RING_TIMEOUT_MS);
 
-  // Invite peer
-  sendSignal("offer", {
-    video: !!video,
-    call_id: activeCallId,
-    room: roomNameForPeer(receiverId),
-    from_full_name: (typeof myDisplayName !== "undefined" ? myDisplayName : "") || (typeof myUsername !== "undefined" ? myUsername : ""),
-    from_username: typeof myUsername !== "undefined" ? myUsername : "",
-    from_avatar: typeof myAvatarUrl !== "undefined" ? myAvatarUrl : "",
-    from_verified: !!(typeof myVerified !== "undefined" && myVerified)
-  });
-
-  // Caller anaingia Jitsi KWANZA → anakuwa moderator (epuka "waiting for moderator")
-  startJitsiMeeting();
+  try {
+    const offer = await pc.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: !!video
+    });
+    await pc.setLocalDescription(offer);
+    await sendSignal("offer", {
+      sdp: pc.localDescription,
+      video: !!video,
+      call_id: activeCallId,
+      from_full_name: (typeof myDisplayName !== "undefined" ? myDisplayName : "") || (typeof myUsername !== "undefined" ? myUsername : ""),
+      from_username: typeof myUsername !== "undefined" ? myUsername : "",
+      from_avatar: typeof myAvatarUrl !== "undefined" ? myAvatarUrl : "",
+      from_verified: !!(typeof myVerified !== "undefined" && myVerified)
+    });
+  } catch (e) {
+    console.error(e);
+    endCallUI("Hitilafu ya kuanzisha simu");
+  }
 }
 
-function acceptCall() {
-  if (callPhase !== "ringing_in") return;
+async function acceptCall() {
+  if (!pendingOffer || callPhase !== "ringing_in") return;
   stopRingtone();
   clearTimeout(callRingTimeout);
-  callPhase = "active";
+  callPhase = "connecting";
   callIsCaller = false;
-  // Tell caller we accepted → they join Jitsi too
-  sendSignal("answer", { call_id: activeCallId, room: roomNameForPeer(callPeerId || receiverId) });
-  startJitsiMeeting();
+  callPeerId = pendingOffer.fromId;
+  callIsVideo = !!pendingOffer.payload.video;
+  if (pendingOffer.payload.call_id) activeCallId = pendingOffer.payload.call_id;
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true },
+      video: callIsVideo ? { facingMode: "user", width: { ideal: 640 }, height: { ideal: 960 } } : false
+    });
+  } catch (e) {
+    showToast("Ruhusu microphone" + (callIsVideo ? "/camera" : ""));
+    rejectCall();
+    return;
+  }
+
+  setupPeerConnection();
+  localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+  if (callIsVideo) {
+    document.getElementById("localVideo").srcObject = localStream;
+    document.getElementById("callVideoWrap").classList.add("show");
+    document.getElementById("callAvatar").style.display = "none";
+  }
+
+  try {
+    await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer.payload.sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await sendSignal("answer", { sdp: pc.localDescription, call_id: activeCallId });
+    pendingOffer = null;
+  } catch (e) {
+    console.error(e);
+    endCallUI("Hitilafu ya kupokea simu");
+  }
 }
 
 function rejectCall() {
-  if (callPhase !== "ringing_in") return;
+  if (callPhase !== "ringing_in" && callPhase !== "connecting") {
+    endCallUI("");
+    return;
+  }
   stopRingtone();
   clearTimeout(callRingTimeout);
   const cid = activeCallId;
   sendSignal("reject", { reason: "reject", call_id: cid });
   if (cid) endedCallIds.add(cid);
+  pendingOffer = null;
   endCallUI("Imekataliwa");
 }
 
-function startJitsiMeeting() {
-  if (typeof JitsiMeetExternalAPI === "undefined") {
-    showToast("Jitsi haikupakia — refresh ukurasa");
-    endCallUI("Hitilafu");
-    return;
+function setupPeerConnection() {
+  if (pc) {
+    try {
+      pc.onicecandidate = null;
+      pc.ontrack = null;
+      pc.onconnectionstatechange = null;
+      pc.close();
+    } catch (e) {}
   }
-  stopRingtone();
-  clearTimeout(callRingTimeout);
+  pc = new RTCPeerConnection(iceServers);
 
-  const peer = callPeerId || receiverId;
-  const room = roomNameForPeer(peer);
-  const parent = document.getElementById("jitsiContainer");
-  parent.innerHTML = "";
-  parent.classList.add("show");
-
-  const ov = document.getElementById("callOverlay");
-  ov.classList.add("show");
-  ov.classList.add("jitsi-live");
-  document.getElementById("callRingUI").style.display = "none";
-
-  const displayName = (typeof myDisplayName !== "undefined" && myDisplayName)
-    ? myDisplayName
-    : ((typeof myUsername !== "undefined" && myUsername) ? myUsername : "User");
-
-  try {
-    if (jitsiApi) {
-      try { jitsiApi.dispose(); } catch (e) {}
-      jitsiApi = null;
+  pc.onicecandidate = (event) => {
+    if (event.candidate && callPhase !== "idle" && callPhase !== "ending") {
+      sendSignal("ice", { candidate: event.candidate, call_id: activeCallId });
     }
-    jitsiApi = new JitsiMeetExternalAPI(JITSI_DOMAIN, {
-      roomName: room,
-      parentNode: parent,
-      width: "100%",
-      height: "100%",
-      userInfo: { displayName: displayName },
-      configOverwrite: {
-        startWithAudioMuted: false,
-        startWithVideoMuted: !callIsVideo,
-        prejoinPageEnabled: false,
-        prejoinConfig: { enabled: false },
-        disableDeepLinking: true,
-        enableWelcomePage: false,
-        enableClosePage: false,
-        disableInviteFunctions: true,
-        defaultLanguage: "en",
-        enableLobby: false,
-        lobby: { autoKnock: false, enableChat: false },
-        requireDisplayName: false,
-        enableInsecureRoomNameWarning: false,
-        notifications: [],
-        p2p: { enabled: true },
-        startSilent: false,
-        // Avoid auth / moderator prompts on public hosts
-        enableUserRolesBasedOnToken: false,
-        enableFeaturesBasedOnToken: false
-      },
-      interfaceConfigOverwrite: {
-        TOOLBAR_BUTTONS: [
-          "microphone", "camera", "hangup", "tileview",
-          "toggle-camera", "fullscreen"
-        ],
-        SHOW_JITSI_WATERMARK: false,
-        SHOW_WATERMARK_FOR_GUESTS: false,
-        DEFAULT_REMOTE_DISPLAY_NAME: receiverFullName || receiverName || "Mtumiaji",
-        MOBILE_APP_PROMO: false,
-        DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
-        AUTHENTICATION_ENABLE: false
+  };
+
+  pc.ontrack = (event) => {
+    const remote = document.getElementById("remoteVideo");
+    if (!remote) return;
+    if (event.streams && event.streams[0]) remote.srcObject = event.streams[0];
+    else {
+      const ms = new MediaStream();
+      ms.addTrack(event.track);
+      remote.srcObject = ms;
+    }
+    remote.play().catch(() => {});
+  };
+
+  pc.onconnectionstatechange = () => {
+    if (!pc) return;
+    const state = pc.connectionState;
+    if (state === "connected") {
+      if (callPhase === "ringing_out" || callPhase === "connecting" || callPhase === "ringing_in") {
+        onCallConnected();
       }
-    });
-
-    callPhase = "active";
-    callActive = true;
-    callConnected = true;
-    startCallTimer();
-    document.getElementById("callStatus").textContent = callIsVideo ? "Video call" : "Voice call";
-
-    jitsiApi.addEventListener("readyToClose", function () {
-      hangupCall(true);
-    });
-    jitsiApi.addEventListener("videoConferenceLeft", function () {
-      if (callPhase === "active") hangupCall(true);
-    });
-  } catch (e) {
-    console.error(e);
-    showToast("Imeshindikana kufungua call");
-    endCallUI("Hitilafu");
-  }
+    } else if (state === "failed" || state === "closed") {
+      if (callActive && callPhase !== "ending" && callPhase !== "idle") {
+        endCallUI("Muunganisho umekatika");
+      }
+    } else if (state === "disconnected") {
+      setTimeout(() => {
+        if (pc && pc.connectionState === "disconnected" && callPhase === "active") {
+          endCallUI("Muunganisho umekatika");
+        }
+      }, 5000);
+    }
+  };
 }
 
-function hangupCall(silent) {
-  if (callPhase === "idle" || callPhase === "ending") return;
+function onCallConnected() {
+  if (callConnected || callPhase === "ending" || callPhase === "idle") return;
+  callConnected = true;
+  callPhase = "active";
+  stopRingtone();
   clearTimeout(callRingTimeout);
-  const cid = activeCallId;
-  const wasConnected = callConnected;
-  const duration = wasConnected ? callSeconds : 0;
-
-  if (!silent) {
-    if (!wasConnected && callIsCaller) {
-      sendSignal("missed", { duration: 0, reason: "cancel", call_id: cid });
-    } else if (!wasConnected && !callIsCaller) {
-      sendSignal("reject", { reason: "reject", call_id: cid });
-    } else {
-      sendSignal("hangup", { duration: duration, reason: "hangup", call_id: cid });
-    }
-  }
-  if (cid) endedCallIds.add(cid);
-  endCallUI("Simu imefungwa");
+  document.getElementById("callAvatar").classList.remove("call-ring-pulse");
+  document.getElementById("callStatus").textContent = callIsVideo ? "Video call" : "Voice call";
+  startCallTimer();
+  document.getElementById("callActions").innerHTML = `
+    <button type="button" class="call-btn mute" id="muteBtn" onclick="toggleMute()" title="Mute"><i class="fa-solid fa-microphone"></i></button>
+    ${callIsVideo ? `<button type="button" class="call-btn cam" id="camBtn" onclick="toggleCam()" title="Camera"><i class="fa-solid fa-video"></i></button>` : ""}
+    <button type="button" class="call-btn hangup" onclick="hangupCall()" title="Funga"><i class="fa-solid fa-phone-slash"></i></button>
+  `;
 }
 
 function stopCallTimer() {
@@ -3747,13 +3786,56 @@ function startCallTimer() {
   }, 1000);
 }
 
+function toggleMute() {
+  if (!localStream) return;
+  isMuted = !isMuted;
+  localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
+  const btn = document.getElementById("muteBtn");
+  if (btn) {
+    btn.classList.toggle("active", isMuted);
+    btn.innerHTML = isMuted ? '<i class="fa-solid fa-microphone-slash"></i>' : '<i class="fa-solid fa-microphone"></i>';
+  }
+}
+
+function toggleCam() {
+  if (!localStream) return;
+  camOff = !camOff;
+  localStream.getVideoTracks().forEach(t => { t.enabled = !camOff; });
+  const btn = document.getElementById("camBtn");
+  if (btn) {
+    btn.classList.toggle("off", camOff);
+    btn.innerHTML = camOff ? '<i class="fa-solid fa-video-slash"></i>' : '<i class="fa-solid fa-video"></i>';
+  }
+}
+
+function hangupCall(silent) {
+  if (callPhase === "idle" || callPhase === "ending") return;
+  clearTimeout(callRingTimeout);
+  const cid = activeCallId;
+  const wasConnected = callConnected;
+  const duration = wasConnected ? callSeconds : 0;
+  if (!silent) {
+    if (!wasConnected && callIsCaller) {
+      sendSignal("missed", { duration: 0, reason: "cancel", call_id: cid });
+    } else if (!wasConnected && !callIsCaller) {
+      sendSignal("reject", { reason: "reject", call_id: cid });
+    } else {
+      sendSignal("hangup", { duration: duration, reason: "hangup", call_id: cid });
+    }
+  }
+  if (cid) endedCallIds.add(cid);
+  endCallUI("Simu imefungwa");
+}
+
 function resetCallState() {
   callPhase = "idle";
   callActive = false;
   callConnected = false;
   callPeerId = null;
   activeCallId = null;
+  pendingOffer = null;
   isMuted = false;
+  camOff = false;
   endingLock = false;
 }
 
@@ -3765,19 +3847,27 @@ function endCallUI(statusText) {
   clearTimeout(callRingTimeout);
   stopCallTimer();
 
-  if (jitsiApi) {
-    try { jitsiApi.dispose(); } catch (e) {}
-    jitsiApi = null;
+  if (localStream) {
+    localStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+    localStream = null;
   }
-  const jc = document.getElementById("jitsiContainer");
-  if (jc) { jc.classList.remove("show"); jc.innerHTML = ""; }
-
-  const ov = document.getElementById("callOverlay");
-  if (ov) ov.classList.remove("jitsi-live");
-  const ring = document.getElementById("callRingUI");
-  if (ring) ring.style.display = "";
+  if (pc) {
+    try {
+      pc.onicecandidate = null;
+      pc.ontrack = null;
+      pc.onconnectionstatechange = null;
+      pc.close();
+    } catch (e) {}
+    pc = null;
+  }
+  const remote = document.getElementById("remoteVideo");
+  const local = document.getElementById("localVideo");
+  if (remote) remote.srcObject = null;
+  if (local) local.srcObject = null;
+  const wrap = document.getElementById("callVideoWrap");
+  if (wrap) wrap.classList.remove("show");
   const av = document.getElementById("callAvatar");
-  if (av) av.classList.remove("call-ring-pulse");
+  if (av) { av.style.display = "block"; av.classList.remove("call-ring-pulse"); }
   const st = document.getElementById("callStatus");
   if (st) st.textContent = statusText || "Simu imefungwa";
 
@@ -3785,10 +3875,9 @@ function endCallUI(statusText) {
   if (endedCallIds.size > 40) {
     Array.from(endedCallIds).slice(0, 20).forEach(id => endedCallIds.delete(id));
   }
-
-  const prevPhase = "ending";
   resetCallState();
   setTimeout(() => {
+    const ov = document.getElementById("callOverlay");
     if (ov && callPhase === "idle") ov.classList.remove("show");
     endingLock = false;
   }, 600);
@@ -3812,6 +3901,7 @@ function stopRingtone() {
   const r = document.getElementById("ringtone");
   if (r) { try { r.pause(); r.currentTime = 0; } catch (e) {} }
 }
+
 
 
 
