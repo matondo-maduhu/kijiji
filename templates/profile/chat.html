@@ -1375,10 +1375,56 @@ body.chat-dark {
   animation: ringPulse 1.2s infinite ease-in-out;
 }
 
+
 @keyframes ringPulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(30,181,58,.45); }
   50% { box-shadow: 0 0 0 16px rgba(30,181,58,0); }
 }
+
+#jitsiContainer {
+  display: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+  background: #0a1510;
+}
+#jitsiContainer.show { display: block; }
+#jitsiContainer iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.call-ring-ui {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 6;
+  position: relative;
+  padding: 24px;
+}
+.call-overlay.jitsi-live .call-ring-ui { display: none; }
+.call-hangup-float {
+  display: none;
+  position: absolute;
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  width: 64px;
+  height: 64px;
+  border: 0;
+  border-radius: 50%;
+  background: #e41e3f;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(228,30,63,.4);
+}
+.call-overlay.jitsi-live .call-hangup-float { display: inline-flex; align-items: center; justify-content: center; }
+
 
 /* Swipe reply hint icon */
 .swipe-reply-icon {
@@ -1836,36 +1882,38 @@ body.chat-dark {
 <div class="chat-toast" id="chatToast"></div>
 
 <div class="call-overlay" id="callOverlay">
-  <div class="call-video-wrap" id="callVideoWrap">
-    <video id="remoteVideo" autoplay playsinline></video>
-    <video id="localVideo" autoplay playsinline muted></video>
-  </div>
+  <div id="jitsiContainer"></div>
+  <button type="button" class="call-hangup-float" id="jitsiHangupBtn" onclick="hangupCall()" title="Funga">
+    <i class="fa-solid fa-phone-slash"></i>
+  </button>
 
-  <img class="call-avatar call-ring-pulse" id="callAvatar"
-       src="{% if receiver.profile_pic %}{% if receiver.profile_pic.startswith('http://') or receiver.profile_pic.startswith('https://') %}{{ receiver.profile_pic }}{% else %}{{ url_for('static', filename='uploads/' ~ receiver.profile_pic) }}{% endif %}{% else %}https://ui-avatars.com/api/?name={{ (receiver.full_name or receiver.username)|urlencode }}&background=1EB53A&color=fff&size=220&bold=true{% endif %}"
-       alt="{{ receiver.full_name or receiver.username }}"
-       onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name={{ (receiver.full_name or receiver.username)|urlencode }}&background=1EB53A&color=fff&size=220&bold=true'">
+  <div class="call-ring-ui" id="callRingUI">
+    <img class="call-avatar call-ring-pulse" id="callAvatar"
+         src="{% if receiver.profile_pic %}{% if receiver.profile_pic.startswith('http://') or receiver.profile_pic.startswith('https://') %}{{ receiver.profile_pic }}{% else %}{{ url_for('static', filename='uploads/' ~ receiver.profile_pic) }}{% endif %}{% else %}https://ui-avatars.com/api/?name={{ (receiver.full_name or receiver.username)|urlencode }}&background=1EB53A&color=fff&size=220&bold=true{% endif %}"
+         alt="{{ receiver.full_name or receiver.username }}"
+         onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name={{ (receiver.full_name or receiver.username)|urlencode }}&background=1EB53A&color=fff&size=220&bold=true'">
 
-  <div class="call-name-wrap">
-    <div class="call-name-row">
-      <h2 class="call-name" id="callName">{% if receiver.full_name %}{{ receiver.full_name }}{% else %}{{ receiver.username }}{% endif %}</h2>
-      <svg class="call-verified{% if receiver.is_verified %} show{% endif %}" id="callVerified" viewBox="0 0 24 24" aria-label="Verified">
-        <path d="M12 0 15.3 3.5 20.1 2.3 20.5 7.3 24 10.4 21.7 14.8 22.9 19.6 18 20.8 15.7 25.2 12 23 8.3 25.2 6 20.8 1.1 19.6 2.3 14.8 0 10.4 3.5 7.3 3.9 2.3 8.7 3.5Z" fill="#8A2BE2"/>
-        <path d="m9.8 15.6-3.6-3.6-1.4 1.4 5 5L20 8.2l-1.4-1.4Z" fill="#fff"/>
-      </svg>
+    <div class="call-name-wrap">
+      <div class="call-name-row">
+        <h2 class="call-name" id="callName">{% if receiver.full_name %}{{ receiver.full_name }}{% else %}{{ receiver.username }}{% endif %}</h2>
+        <svg class="call-verified{% if receiver.is_verified %} show{% endif %}" id="callVerified" viewBox="0 0 24 24" aria-label="Verified">
+          <path d="M12 0 15.3 3.5 20.1 2.3 20.5 7.3 24 10.4 21.7 14.8 22.9 19.6 18 20.8 15.7 25.2 12 23 8.3 25.2 6 20.8 1.1 19.6 2.3 14.8 0 10.4 3.5 7.3 3.9 2.3 8.7 3.5Z" fill="#8A2BE2"/>
+          <path d="m9.8 15.6-3.6-3.6-1.4 1.4 5 5L20 8.2l-1.4-1.4Z" fill="#fff"/>
+        </svg>
+      </div>
+      <p class="call-handle" id="callHandle">@{{ receiver.username }}</p>
     </div>
-    <p class="call-handle" id="callHandle">@{{ receiver.username }}</p>
+    <p class="call-status" id="callStatus">Inaita...</p>
+    <p class="call-timer" id="callTimer">00:00</p>
+    <div class="call-actions" id="callActions"></div>
   </div>
-  <p class="call-status" id="callStatus">Inaita...</p>
-  <p class="call-timer" id="callTimer">00:00</p>
-
-  <div class="call-actions" id="callActions"></div>
 </div>
 
 <audio id="bg-music" loop>
   <source src="{{ url_for('static', filename='uploads/background.mp3') }}" type="audio/mpeg">
 </audio>
 
+<script src="https://meet.jit.si/external_api.js"></script>
 <audio id="ringtone" loop>
   <source src="{{ url_for('static', filename='uploads/ringtone.mp3') }}" type="audio/mpeg">
 </audio>
@@ -3284,11 +3332,9 @@ document.addEventListener("keydown", event => {
   }
 });
 
-/* ===== WEBRTC CALLS (state machine) ===== */
-let pc = null;
-let localStream = null;
-/** idle | ringing_out | ringing_in | connecting | active | ending */
-let callPhase = "idle";
+/* ===== JITSI CALLS (free + stable) ===== */
+let jitsiApi = null;
+let callPhase = "idle"; // idle | ringing_out | ringing_in | active | ending
 let callActive = false;
 let callConnected = false;
 let callIsVideo = false;
@@ -3300,24 +3346,22 @@ let callSignalPoll = null;
 let callTimerInterval = null;
 let callRingTimeout = null;
 let callSeconds = 0;
-let isMuted = false;
-let camOff = false;
-let pendingOffer = null;
 let endingLock = false;
 const endedCallIds = new Set();
 const CALL_RING_TIMEOUT_MS = 45000;
-const CALL_POLL_MS = 900;
-
-const iceServers = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-    { urls: "stun:stun2.l.google.com:19302" }
-  ]
-};
+const CALL_POLL_MS = 1000;
+const JITSI_DOMAIN = "meet.jit.si";
 
 function newCallId() {
   return "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function roomNameForPeer(peerId) {
+  const a = Math.min(myUserId, peerId);
+  const b = Math.max(myUserId, peerId);
+  // deterministic room for the pair (+ call_id suffix when known)
+  const base = "KijijiTZ_" + a + "_" + b;
+  return activeCallId ? (base + "_" + activeCallId) : base;
 }
 
 function resolveAvatarUrl(pic, name) {
@@ -3326,7 +3370,6 @@ function resolveAvatarUrl(pic, name) {
   if (s.indexOf("http://") === 0 || s.indexOf("https://") === 0) return s;
   return staticUploadBase + s.replace(/^\/+/, "");
 }
-
 function avatarFallback(name) {
   const n = encodeURIComponent((name || "U").toString().trim() || "U");
   return "https://ui-avatars.com/api/?name=" + n + "&background=1EB53A&color=fff&size=220&bold=true";
@@ -3337,18 +3380,12 @@ function sendSignal(type, payload) {
   if (!peer) return Promise.resolve({});
   const body = Object.assign({}, payload || {});
   if (activeCallId && !body.call_id) body.call_id = activeCallId;
+  body.video = !!callIsVideo;
   return fetch("{{ url_for('call_signal') }}", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Requested-With": "XMLHttpRequest"
-    },
+    headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
     credentials: "same-origin",
-    body: JSON.stringify({
-      to_user_id: peer,
-      type: type,
-      payload: body
-    })
+    body: JSON.stringify({ to_user_id: peer, type: type, payload: body })
   }).then(r => r.json()).catch(() => ({}));
 }
 
@@ -3365,7 +3402,7 @@ function pollCallSignals() {
   })
     .then(r => r.json())
     .then(data => {
-      if (!data || !data.signals || !data.signals.length) return;
+      if (!data || !data.signals) return;
       data.signals.forEach(sig => {
         if (sig.id) lastSignalId = Math.max(lastSignalId, sig.id);
         handleSignal(sig);
@@ -3379,37 +3416,23 @@ function handleSignal(sig) {
   try {
     payload = typeof sig.payload === "string" ? JSON.parse(sig.payload || "{}") : (sig.payload || {});
   } catch (e) { payload = {}; }
-
   const fromId = sig.from_user_id;
   const type = (sig.type || "").toLowerCase();
   const sigCallId = payload.call_id || null;
 
-  // Ignore signals for calls we already ended
-  if (sigCallId && endedCallIds.has(sigCallId) && type !== "offer") {
-    return;
-  }
-  // Ignore ICE/answer for different call session
-  if (sigCallId && activeCallId && sigCallId !== activeCallId && type !== "offer") {
-    return;
-  }
+  if (sigCallId && endedCallIds.has(sigCallId) && type !== "offer") return;
+  if (sigCallId && activeCallId && sigCallId !== activeCallId && type !== "offer") return;
 
   if (type === "offer") {
-    // Already in a call → busy
     if (callPhase !== "idle" && callPhase !== "ending") {
-      const prevPeer = callPeerId;
-      const prevCall = activeCallId;
-      callPeerId = fromId;
-      activeCallId = sigCallId;
-      sendSignal("busy", { video: !!payload.video, call_id: sigCallId });
-      callPeerId = prevPeer;
-      activeCallId = prevCall;
+      const prevPeer = callPeerId, prevCall = activeCallId;
+      callPeerId = fromId; activeCallId = sigCallId;
+      sendSignal("busy", { call_id: sigCallId, video: !!payload.video });
+      callPeerId = prevPeer; activeCallId = prevCall;
       return;
     }
-    // Duplicate/stale offer same call_id
     if (sigCallId && endedCallIds.has(sigCallId)) return;
-    if (sigCallId && activeCallId === sigCallId && callPhase !== "idle") return;
 
-    pendingOffer = { fromId, payload };
     callPeerId = fromId;
     activeCallId = sigCallId || newCallId();
     callIsVideo = !!payload.video;
@@ -3418,18 +3441,18 @@ function handleSignal(sig) {
     callActive = true;
     callConnected = false;
 
-    showIncomingCall(payload.video, {
+    showIncomingCall(callIsVideo, {
       full_name: payload.from_full_name || payload.from_name,
       username: payload.from_username,
-      avatar: resolveAvatarUrl(payload.from_avatar || payload.from_profile_pic, payload.from_full_name || payload.from_username),
+      avatar: resolveAvatarUrl(payload.from_avatar, payload.from_full_name || payload.from_username),
       verified: !!(payload.from_verified)
     });
 
     clearTimeout(callRingTimeout);
     callRingTimeout = setTimeout(() => {
-      if (callPhase === "ringing_in" && !callConnected) {
+      if (callPhase === "ringing_in") {
         const cid = activeCallId;
-        sendSignal("missed", { video: callIsVideo, reason: "timeout", call_id: cid });
+        sendSignal("missed", { reason: "timeout", call_id: cid });
         if (cid) endedCallIds.add(cid);
         endCallUI("Missed call");
       }
@@ -3438,20 +3461,11 @@ function handleSignal(sig) {
   }
 
   if (type === "answer") {
-    // ONLY caller in ringing_out / connecting accepts answer
-    if (!callIsCaller || !pc) return;
-    if (callPhase !== "ringing_out" && callPhase !== "connecting") return;
-    callPhase = "connecting";
-    pc.setRemoteDescription(new RTCSessionDescription(payload.sdp))
-      .catch(err => console.error(err));
-    // DO NOT start timer here — wait until ICE connected
-    return;
-  }
-
-  if (type === "ice") {
-    if (!pc || !payload.candidate) return;
-    if (callPhase === "idle" || callPhase === "ending") return;
-    pc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch(() => {});
+    // Callee joined — caller starts Jitsi if not yet
+    if (!callIsCaller) return;
+    if (callPhase !== "ringing_out") return;
+    if (payload.call_id && activeCallId && payload.call_id !== activeCallId) return;
+    startJitsiMeeting();
     return;
   }
 
@@ -3459,13 +3473,10 @@ function handleSignal(sig) {
     const relevant =
       fromId === callPeerId ||
       fromId === receiverId ||
-      (pendingOffer && fromId === pendingOffer.fromId) ||
       (sigCallId && sigCallId === activeCallId);
-
     if (!relevant) return;
     if (sigCallId) endedCallIds.add(sigCallId);
     if (activeCallId) endedCallIds.add(activeCallId);
-
     let msg = "Simu imefungwa";
     if (type === "busy") msg = "Busy";
     else if (type === "reject") msg = "Imekataliwa";
@@ -3478,59 +3489,48 @@ function setCallPeerUI(info) {
   info = info || {};
   const name = (info.full_name || info.name || info.username || receiverFullName || receiverName || "Mtumiaji").toString();
   const username = (info.username || receiverName || "").toString().replace(/^@/, "");
-  let avatar = (info.avatar || info.profile_pic || receiverAvatarUrl || "").toString();
-  if (avatar && avatar.indexOf("http") !== 0) {
-    avatar = resolveAvatarUrl(avatar, name);
-  }
+  let avatar = (info.avatar || receiverAvatarUrl || "").toString();
+  if (avatar && avatar.indexOf("http") !== 0) avatar = resolveAvatarUrl(avatar, name);
   const verified = !!(info.verified || info.is_verified);
-
   const nameEl = document.getElementById("callName");
   const handleEl = document.getElementById("callHandle");
   const avatarEl = document.getElementById("callAvatar");
   const badgeEl = document.getElementById("callVerified");
-
   if (nameEl) nameEl.textContent = name;
   if (handleEl) handleEl.textContent = username ? ("@" + username) : "";
   if (avatarEl) {
     avatarEl.alt = name;
-    avatarEl.onerror = function () {
-      this.onerror = null;
-      this.src = avatarFallback(name);
-    };
+    avatarEl.onerror = function () { this.onerror = null; this.src = avatarFallback(name); };
     avatarEl.src = avatar || avatarFallback(name);
   }
-  if (badgeEl) {
-    if (verified) badgeEl.classList.add("show");
-    else badgeEl.classList.remove("show");
-  }
+  if (badgeEl) badgeEl.classList.toggle("show", verified);
 }
 
 function showIncomingCall(isVideo, peerInfo) {
   pauseBgMusic();
   playRingtone();
-  // Timer MUST stay hidden until connected
   stopCallTimer();
-  setCallPeerUI(peerInfo || {
-    full_name: receiverFullName,
-    username: receiverName,
-    avatar: receiverAvatarUrl,
-    verified: receiverVerified
-  });
+  setCallPeerUI(peerInfo);
   document.getElementById("callStatus").textContent = isVideo ? "Video call inakuja..." : "Voice call inakuja...";
   document.getElementById("callTimer").classList.remove("show");
-  document.getElementById("callVideoWrap").classList.remove("show");
-  document.getElementById("callAvatar").classList.add("call-ring-pulse");
-  document.getElementById("callAvatar").style.display = "block";
   document.getElementById("callActions").innerHTML = `
     <button type="button" class="call-btn reject" onclick="rejectCall()" title="Kataa"><i class="fa-solid fa-phone-slash"></i></button>
     <button type="button" class="call-btn accept" onclick="acceptCall()" title="Pokea"><i class="fa-solid fa-phone"></i></button>
   `;
-  document.getElementById("callOverlay").classList.add("show");
+  const ov = document.getElementById("callOverlay");
+  ov.classList.remove("jitsi-live");
+  ov.classList.add("show");
+  document.getElementById("callRingUI").style.display = "";
+  document.getElementById("jitsiContainer").classList.remove("show");
 }
 
-async function startCall(video) {
+function startCall(video) {
   if (callPhase !== "idle") {
     showToast("Tayari uko kwenye simu");
+    return;
+  }
+  if (typeof JitsiMeetExternalAPI === "undefined") {
+    showToast("Call module bado inapakia — jaribu tena sekunde chache");
     return;
   }
   endingLock = false;
@@ -3541,32 +3541,8 @@ async function startCall(video) {
   callPhase = "ringing_out";
   callActive = true;
   callConnected = false;
-  pendingOffer = null;
   pauseBgMusic();
   stopCallTimer();
-
-  try {
-    localStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true },
-      video: video ? { facingMode: "user", width: { ideal: 720 }, height: { ideal: 1280 } } : false
-    });
-  } catch (e) {
-    showToast("Ruhusu microphone" + (video ? "/camera" : "") + " kwenye browser");
-    resetCallState();
-    return;
-  }
-
-  setupPeerConnection();
-  localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-
-  if (video) {
-    document.getElementById("localVideo").srcObject = localStream;
-    document.getElementById("callVideoWrap").classList.add("show");
-    document.getElementById("callAvatar").style.display = "none";
-  } else {
-    document.getElementById("callVideoWrap").classList.remove("show");
-    document.getElementById("callAvatar").style.display = "block";
-  }
 
   setCallPeerUI({
     full_name: receiverFullName,
@@ -3580,164 +3556,151 @@ async function startCall(video) {
   document.getElementById("callActions").innerHTML = `
     <button type="button" class="call-btn hangup" onclick="hangupCall()" title="Funga"><i class="fa-solid fa-phone-slash"></i></button>
   `;
-  document.getElementById("callOverlay").classList.add("show");
+  const ov = document.getElementById("callOverlay");
+  ov.classList.remove("jitsi-live");
+  ov.classList.add("show");
+  document.getElementById("callRingUI").style.display = "";
+  document.getElementById("jitsiContainer").classList.remove("show");
   playRingtone();
 
   clearTimeout(callRingTimeout);
   callRingTimeout = setTimeout(() => {
-    if (callPhase === "ringing_out" && !callConnected) {
+    if (callPhase === "ringing_out") {
       const cid = activeCallId;
-      sendSignal("missed", { video: callIsVideo, reason: "timeout", call_id: cid });
+      sendSignal("missed", { reason: "timeout", call_id: cid });
       if (cid) endedCallIds.add(cid);
       endCallUI("Hakuna majibu");
     }
   }, CALL_RING_TIMEOUT_MS);
 
-  try {
-    const offer = await pc.createOffer({
-      offerToReceiveAudio: true,
-      offerToReceiveVideo: !!video
-    });
-    await pc.setLocalDescription(offer);
-    await sendSignal("offer", {
-      sdp: pc.localDescription,
-      video: !!video,
-      call_id: activeCallId,
-      from_full_name: (typeof myDisplayName !== "undefined" ? myDisplayName : "") || (typeof myUsername !== "undefined" ? myUsername : ""),
-      from_username: typeof myUsername !== "undefined" ? myUsername : "",
-      from_avatar: typeof myAvatarUrl !== "undefined" ? myAvatarUrl : "",
-      from_verified: !!(typeof myVerified !== "undefined" && myVerified)
-    });
-  } catch (e) {
-    console.error(e);
-    endCallUI("Hitilafu ya kuanzisha simu");
-  }
+  // Invite peer (signaling only — media = Jitsi)
+  sendSignal("offer", {
+    video: !!video,
+    call_id: activeCallId,
+    room: roomNameForPeer(receiverId),
+    from_full_name: (typeof myDisplayName !== "undefined" ? myDisplayName : "") || (typeof myUsername !== "undefined" ? myUsername : ""),
+    from_username: typeof myUsername !== "undefined" ? myUsername : "",
+    from_avatar: typeof myAvatarUrl !== "undefined" ? myAvatarUrl : "",
+    from_verified: !!(typeof myVerified !== "undefined" && myVerified)
+  });
 }
 
-async function acceptCall() {
-  if (!pendingOffer || callPhase !== "ringing_in") return;
+function acceptCall() {
+  if (callPhase !== "ringing_in") return;
   stopRingtone();
   clearTimeout(callRingTimeout);
-  callPhase = "connecting";
-  callActive = true;
+  callPhase = "active";
   callIsCaller = false;
-  callPeerId = pendingOffer.fromId;
-  callIsVideo = !!pendingOffer.payload.video;
-  if (pendingOffer.payload.call_id) activeCallId = pendingOffer.payload.call_id;
-
-  try {
-    localStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true },
-      video: callIsVideo ? { facingMode: "user", width: { ideal: 720 }, height: { ideal: 1280 } } : false
-    });
-  } catch (e) {
-    showToast("Ruhusu microphone" + (callIsVideo ? "/camera" : ""));
-    rejectCall();
-    return;
-  }
-
-  setupPeerConnection();
-  localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-
-  if (callIsVideo) {
-    document.getElementById("localVideo").srcObject = localStream;
-    document.getElementById("callVideoWrap").classList.add("show");
-    document.getElementById("callAvatar").style.display = "none";
-  }
-
-  try {
-    await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer.payload.sdp));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    await sendSignal("answer", { sdp: pc.localDescription, call_id: activeCallId });
-    pendingOffer = null;
-    // Timer starts only when connectionState === connected
-  } catch (e) {
-    console.error(e);
-    endCallUI("Hitilafu ya kupokea simu");
-  }
+  // Tell caller we accepted → they join Jitsi too
+  sendSignal("answer", { call_id: activeCallId, room: roomNameForPeer(callPeerId || receiverId) });
+  startJitsiMeeting();
 }
 
 function rejectCall() {
-  if (callPhase !== "ringing_in" && callPhase !== "connecting") {
-    endCallUI("");
+  if (callPhase !== "ringing_in") return;
+  stopRingtone();
+  clearTimeout(callRingTimeout);
+  const cid = activeCallId;
+  sendSignal("reject", { reason: "reject", call_id: cid });
+  if (cid) endedCallIds.add(cid);
+  endCallUI("Imekataliwa");
+}
+
+function startJitsiMeeting() {
+  if (typeof JitsiMeetExternalAPI === "undefined") {
+    showToast("Jitsi haikupakia — refresh ukurasa");
+    endCallUI("Hitilafu");
     return;
   }
   stopRingtone();
   clearTimeout(callRingTimeout);
-  const cid = activeCallId;
-  sendSignal("reject", { video: callIsVideo, reason: "reject", call_id: cid });
-  if (cid) endedCallIds.add(cid);
-  pendingOffer = null;
-  endCallUI("Imekataliwa");
-}
 
-function setupPeerConnection() {
-  if (pc) {
-    try {
-      pc.onicecandidate = null;
-      pc.ontrack = null;
-      pc.onconnectionstatechange = null;
-      pc.close();
-    } catch (e) {}
+  const peer = callPeerId || receiverId;
+  const room = roomNameForPeer(peer);
+  const parent = document.getElementById("jitsiContainer");
+  parent.innerHTML = "";
+  parent.classList.add("show");
+
+  const ov = document.getElementById("callOverlay");
+  ov.classList.add("show");
+  ov.classList.add("jitsi-live");
+  document.getElementById("callRingUI").style.display = "none";
+
+  const displayName = (typeof myDisplayName !== "undefined" && myDisplayName)
+    ? myDisplayName
+    : ((typeof myUsername !== "undefined" && myUsername) ? myUsername : "User");
+
+  try {
+    if (jitsiApi) {
+      try { jitsiApi.dispose(); } catch (e) {}
+      jitsiApi = null;
+    }
+    jitsiApi = new JitsiMeetExternalAPI(JITSI_DOMAIN, {
+      roomName: room,
+      parentNode: parent,
+      width: "100%",
+      height: "100%",
+      userInfo: { displayName: displayName },
+      configOverwrite: {
+        startWithAudioMuted: false,
+        startWithVideoMuted: !callIsVideo,
+        prejoinPageEnabled: false,
+        disableDeepLinking: true,
+        enableWelcomePage: false,
+        enableClosePage: false,
+        disableInviteFunctions: true,
+        defaultLanguage: "en"
+      },
+      interfaceConfigOverwrite: {
+        TOOLBAR_BUTTONS: [
+          "microphone", "camera", "hangup", "tileview",
+          "toggle-camera", "fullscreen"
+        ],
+        SHOW_JITSI_WATERMARK: false,
+        SHOW_WATERMARK_FOR_GUESTS: false,
+        DEFAULT_REMOTE_DISPLAY_NAME: receiverFullName || receiverName || "Mtumiaji",
+        MOBILE_APP_PROMO: false,
+        DISABLE_JOIN_LEAVE_NOTIFICATIONS: true
+      }
+    });
+
+    callPhase = "active";
+    callActive = true;
+    callConnected = true;
+    startCallTimer();
+    document.getElementById("callStatus").textContent = callIsVideo ? "Video call" : "Voice call";
+
+    jitsiApi.addEventListener("readyToClose", function () {
+      hangupCall(true);
+    });
+    jitsiApi.addEventListener("videoConferenceLeft", function () {
+      if (callPhase === "active") hangupCall(true);
+    });
+  } catch (e) {
+    console.error(e);
+    showToast("Imeshindikana kufungua call");
+    endCallUI("Hitilafu");
   }
-  pc = new RTCPeerConnection(iceServers);
-
-  pc.onicecandidate = (event) => {
-    if (event.candidate && callPhase !== "idle" && callPhase !== "ending") {
-      sendSignal("ice", { candidate: event.candidate, call_id: activeCallId });
-    }
-  };
-
-  pc.ontrack = (event) => {
-    const remote = document.getElementById("remoteVideo");
-    if (!remote) return;
-    if (event.streams && event.streams[0]) {
-      remote.srcObject = event.streams[0];
-    } else {
-      const ms = new MediaStream();
-      ms.addTrack(event.track);
-      remote.srcObject = ms;
-    }
-    remote.play().catch(() => {});
-  };
-
-  pc.onconnectionstatechange = () => {
-    if (!pc) return;
-    const state = pc.connectionState;
-    if (state === "connected") {
-      // ONLY now start timer — both sides after real media path
-      if (callPhase === "ringing_out" || callPhase === "connecting" || callPhase === "ringing_in") {
-        onCallConnected();
-      }
-    } else if (state === "failed" || state === "closed") {
-      if (callActive && callPhase !== "ending" && callPhase !== "idle") {
-        endCallUI("Muunganisho umekatika");
-      }
-    } else if (state === "disconnected") {
-      setTimeout(() => {
-        if (pc && pc.connectionState === "disconnected" && callActive && callPhase === "active") {
-          endCallUI("Muunganisho umekatika");
-        }
-      }, 5000);
-    }
-  };
 }
 
-function onCallConnected() {
-  if (callConnected || callPhase === "ending" || callPhase === "idle") return;
-  callConnected = true;
-  callPhase = "active";
-  stopRingtone();
+function hangupCall(silent) {
+  if (callPhase === "idle" || callPhase === "ending") return;
   clearTimeout(callRingTimeout);
-  document.getElementById("callAvatar").classList.remove("call-ring-pulse");
-  document.getElementById("callStatus").textContent = callIsVideo ? "Video call" : "Voice call";
-  startCallTimer();
-  document.getElementById("callActions").innerHTML = `
-    <button type="button" class="call-btn mute" id="muteBtn" onclick="toggleMute()" title="Mute"><i class="fa-solid fa-microphone"></i></button>
-    ${callIsVideo ? `<button type="button" class="call-btn cam" id="camBtn" onclick="toggleCam()" title="Camera"><i class="fa-solid fa-video"></i></button>` : ""}
-    <button type="button" class="call-btn hangup" onclick="hangupCall()" title="Funga"><i class="fa-solid fa-phone-slash"></i></button>
-  `;
+  const cid = activeCallId;
+  const wasConnected = callConnected;
+  const duration = wasConnected ? callSeconds : 0;
+
+  if (!silent) {
+    if (!wasConnected && callIsCaller) {
+      sendSignal("missed", { duration: 0, reason: "cancel", call_id: cid });
+    } else if (!wasConnected && !callIsCaller) {
+      sendSignal("reject", { reason: "reject", call_id: cid });
+    } else {
+      sendSignal("hangup", { duration: duration, reason: "hangup", call_id: cid });
+    }
+  }
+  if (cid) endedCallIds.add(cid);
+  endCallUI("Simu imefungwa");
 }
 
 function stopCallTimer() {
@@ -3745,10 +3708,7 @@ function stopCallTimer() {
   callTimerInterval = null;
   callSeconds = 0;
   const el = document.getElementById("callTimer");
-  if (el) {
-    el.classList.remove("show");
-    el.textContent = "00:00";
-  }
+  if (el) { el.classList.remove("show"); el.textContent = "00:00"; }
 }
 
 function startCallTimer() {
@@ -3759,7 +3719,6 @@ function startCallTimer() {
   el.classList.add("show");
   el.textContent = "00:00";
   callTimerInterval = setInterval(() => {
-    // Guard: never tick unless truly active
     if (callPhase !== "active") return;
     callSeconds++;
     const m = String(Math.floor(callSeconds / 60)).padStart(2, "0");
@@ -3768,58 +3727,13 @@ function startCallTimer() {
   }, 1000);
 }
 
-function toggleMute() {
-  if (!localStream) return;
-  isMuted = !isMuted;
-  localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
-  const btn = document.getElementById("muteBtn");
-  if (btn) {
-    btn.classList.toggle("active", isMuted);
-    btn.innerHTML = isMuted ? '<i class="fa-solid fa-microphone-slash"></i>' : '<i class="fa-solid fa-microphone"></i>';
-  }
-}
-
-function toggleCam() {
-  if (!localStream) return;
-  camOff = !camOff;
-  localStream.getVideoTracks().forEach(t => { t.enabled = !camOff; });
-  const btn = document.getElementById("camBtn");
-  if (btn) {
-    btn.classList.toggle("off", camOff);
-    btn.innerHTML = camOff ? '<i class="fa-solid fa-video-slash"></i>' : '<i class="fa-solid fa-video"></i>';
-  }
-}
-
-function hangupCall(silent) {
-  if (callPhase === "idle" || callPhase === "ending") return;
-  clearTimeout(callRingTimeout);
-  const cid = activeCallId;
-  const wasConnected = callConnected;
-  const duration = wasConnected ? callSeconds : 0;
-  const video = callIsVideo;
-
-  if (!silent) {
-    if (!wasConnected && callIsCaller) {
-      sendSignal("missed", { video: video, duration: 0, reason: "cancel", call_id: cid });
-    } else if (!wasConnected && !callIsCaller) {
-      sendSignal("reject", { video: video, reason: "reject", call_id: cid });
-    } else {
-      sendSignal("hangup", { video: video, duration: duration, reason: "hangup", call_id: cid });
-    }
-  }
-  if (cid) endedCallIds.add(cid);
-  endCallUI("Simu imefungwa");
-}
-
 function resetCallState() {
   callPhase = "idle";
   callActive = false;
   callConnected = false;
   callPeerId = null;
   activeCallId = null;
-  pendingOffer = null;
   isMuted = false;
-  camOff = false;
   endingLock = false;
 }
 
@@ -3827,77 +3741,58 @@ function endCallUI(statusText) {
   if (endingLock) return;
   endingLock = true;
   callPhase = "ending";
-
   stopRingtone();
   clearTimeout(callRingTimeout);
   stopCallTimer();
 
-  if (localStream) {
-    localStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
-    localStream = null;
+  if (jitsiApi) {
+    try { jitsiApi.dispose(); } catch (e) {}
+    jitsiApi = null;
   }
-  if (pc) {
-    try {
-      pc.onicecandidate = null;
-      pc.ontrack = null;
-      pc.onconnectionstatechange = null;
-      pc.close();
-    } catch (e) {}
-    pc = null;
-  }
+  const jc = document.getElementById("jitsiContainer");
+  if (jc) { jc.classList.remove("show"); jc.innerHTML = ""; }
 
-  const remote = document.getElementById("remoteVideo");
-  const local = document.getElementById("localVideo");
-  if (remote) remote.srcObject = null;
-  if (local) local.srcObject = null;
-
-  const wrap = document.getElementById("callVideoWrap");
-  if (wrap) wrap.classList.remove("show");
+  const ov = document.getElementById("callOverlay");
+  if (ov) ov.classList.remove("jitsi-live");
+  const ring = document.getElementById("callRingUI");
+  if (ring) ring.style.display = "";
   const av = document.getElementById("callAvatar");
-  if (av) {
-    av.style.display = "block";
-    av.classList.remove("call-ring-pulse");
-  }
+  if (av) av.classList.remove("call-ring-pulse");
   const st = document.getElementById("callStatus");
   if (st) st.textContent = statusText || "Simu imefungwa";
 
   if (activeCallId) endedCallIds.add(activeCallId);
-  // keep endedCallIds but trim size
   if (endedCallIds.size > 40) {
-    const arr = Array.from(endedCallIds);
-    arr.slice(0, arr.length - 20).forEach(id => endedCallIds.delete(id));
+    Array.from(endedCallIds).slice(0, 20).forEach(id => endedCallIds.delete(id));
   }
 
+  const prevPhase = "ending";
   resetCallState();
-
   setTimeout(() => {
-    const ov = document.getElementById("callOverlay");
     if (ov && callPhase === "idle") ov.classList.remove("show");
     endingLock = false;
-  }, 700);
+  }, 600);
 }
 
 function playRingtone() {
   const r = document.getElementById("ringtone");
-  if (r) {
-    const stored = localStorage.getItem("kijiji_ringtone_volume");
-    let vol = 30;
-    if (stored !== null && stored !== "") {
-      const n = parseInt(stored, 10);
-      if (!isNaN(n) && n >= 0 && n <= 100) vol = n;
-    }
-    r.volume = vol / 100;
-    try { r.currentTime = 0; } catch (e) {}
-    r.play().catch(() => {});
+  if (!r) return;
+  const stored = localStorage.getItem("kijiji_ringtone_volume");
+  let vol = 30;
+  if (stored !== null && stored !== "") {
+    const n = parseInt(stored, 10);
+    if (!isNaN(n) && n >= 0 && n <= 100) vol = n;
   }
+  r.volume = vol / 100;
+  try { r.currentTime = 0; } catch (e) {}
+  r.play().catch(() => {});
 }
 
 function stopRingtone() {
   const r = document.getElementById("ringtone");
-  if (r) {
-    try { r.pause(); r.currentTime = 0; } catch (e) {}
-  }
+  if (r) { try { r.pause(); r.currentTime = 0; } catch (e) {} }
 }
+
 
 
 </script>
