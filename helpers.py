@@ -128,7 +128,7 @@ def init_helpers(_app, **kwargs):
             globals()[k.upper()] = v
     app.config.setdefault('UPLOAD_FOLDER', UPLOAD_FOLDER)
     app.config.setdefault('UPLOAD_BADGES_FOLDER', UPLOAD_BADGES_FOLDER)
-    app.config.setdefault('MAX_CONTENT_LENGTH', 24 * 1024 * 1024)
+    app.config.setdefault('MAX_CONTENT_LENGTH', 100 * 1024 * 1024)
     # Linkup identity available on EVERY template (base, feed, chat, ...)
     try:
         app.context_processor(inject_linkup_identity)
