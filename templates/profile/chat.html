@@ -3284,14 +3284,17 @@ document.addEventListener("keydown", event => {
   }
 });
 
-/* ===== WEBRTC CALLS (fixed) ===== */
+/* ===== WEBRTC CALLS (state machine) ===== */
 let pc = null;
 let localStream = null;
+/** idle | ringing_out | ringing_in | connecting | active | ending */
+let callPhase = "idle";
 let callActive = false;
 let callConnected = false;
 let callIsVideo = false;
 let callIsCaller = false;
 let callPeerId = null;
+let activeCallId = null;
 let lastSignalId = 0;
 let callSignalPoll = null;
 let callTimerInterval = null;
@@ -3300,8 +3303,10 @@ let callSeconds = 0;
 let isMuted = false;
 let camOff = false;
 let pendingOffer = null;
+let endingLock = false;
+const endedCallIds = new Set();
 const CALL_RING_TIMEOUT_MS = 45000;
-const CALL_POLL_MS = 1000;
+const CALL_POLL_MS = 900;
 
 const iceServers = {
   iceServers: [
@@ -3311,6 +3316,10 @@ const iceServers = {
   ]
 };
 
+function newCallId() {
+  return "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
 function resolveAvatarUrl(pic, name) {
   if (!pic) return avatarFallback(name);
   const s = String(pic);
@@ -3318,9 +3327,16 @@ function resolveAvatarUrl(pic, name) {
   return staticUploadBase + s.replace(/^\/+/, "");
 }
 
+function avatarFallback(name) {
+  const n = encodeURIComponent((name || "U").toString().trim() || "U");
+  return "https://ui-avatars.com/api/?name=" + n + "&background=1EB53A&color=fff&size=220&bold=true";
+}
+
 function sendSignal(type, payload) {
   const peer = callPeerId || receiverId;
   if (!peer) return Promise.resolve({});
+  const body = Object.assign({}, payload || {});
+  if (activeCallId && !body.call_id) body.call_id = activeCallId;
   return fetch("{{ url_for('call_signal') }}", {
     method: "POST",
     headers: {
@@ -3331,7 +3347,7 @@ function sendSignal(type, payload) {
     body: JSON.stringify({
       to_user_id: peer,
       type: type,
-      payload: payload || {}
+      payload: body
     })
   }).then(r => r.json()).catch(() => ({}));
 }
@@ -3351,7 +3367,7 @@ function pollCallSignals() {
     .then(data => {
       if (!data || !data.signals || !data.signals.length) return;
       data.signals.forEach(sig => {
-        lastSignalId = Math.max(lastSignalId, sig.id || 0);
+        if (sig.id) lastSignalId = Math.max(lastSignalId, sig.id);
         handleSignal(sig);
       });
     })
@@ -3366,54 +3382,96 @@ function handleSignal(sig) {
 
   const fromId = sig.from_user_id;
   const type = (sig.type || "").toLowerCase();
+  const sigCallId = payload.call_id || null;
+
+  // Ignore signals for calls we already ended
+  if (sigCallId && endedCallIds.has(sigCallId) && type !== "offer") {
+    return;
+  }
+  // Ignore ICE/answer for different call session
+  if (sigCallId && activeCallId && sigCallId !== activeCallId && type !== "offer") {
+    return;
+  }
 
   if (type === "offer") {
-    if (callActive) {
-      const prev = callPeerId;
+    // Already in a call → busy
+    if (callPhase !== "idle" && callPhase !== "ending") {
+      const prevPeer = callPeerId;
+      const prevCall = activeCallId;
       callPeerId = fromId;
-      sendSignal("busy", { video: !!payload.video });
-      callPeerId = prev;
+      activeCallId = sigCallId;
+      sendSignal("busy", { video: !!payload.video, call_id: sigCallId });
+      callPeerId = prevPeer;
+      activeCallId = prevCall;
       return;
     }
+    // Duplicate/stale offer same call_id
+    if (sigCallId && endedCallIds.has(sigCallId)) return;
+    if (sigCallId && activeCallId === sigCallId && callPhase !== "idle") return;
+
     pendingOffer = { fromId, payload };
     callPeerId = fromId;
+    activeCallId = sigCallId || newCallId();
     callIsVideo = !!payload.video;
     callIsCaller = false;
+    callPhase = "ringing_in";
+    callActive = true;
+    callConnected = false;
+
     showIncomingCall(payload.video, {
       full_name: payload.from_full_name || payload.from_name,
       username: payload.from_username,
       avatar: resolveAvatarUrl(payload.from_avatar || payload.from_profile_pic, payload.from_full_name || payload.from_username),
       verified: !!(payload.from_verified)
     });
+
     clearTimeout(callRingTimeout);
     callRingTimeout = setTimeout(() => {
-      if (!callConnected && pendingOffer) {
-        // Callee hakujibu → missed
-        sendSignal("missed", { video: callIsVideo, reason: "timeout" });
+      if (callPhase === "ringing_in" && !callConnected) {
+        const cid = activeCallId;
+        sendSignal("missed", { video: callIsVideo, reason: "timeout", call_id: cid });
+        if (cid) endedCallIds.add(cid);
         endCallUI("Missed call");
       }
     }, CALL_RING_TIMEOUT_MS);
-  } else if (type === "answer") {
-    if (!pc || !callIsCaller) return;
-    pc.setRemoteDescription(new RTCSessionDescription(payload.sdp)).catch(err => console.error(err));
-  } else if (type === "ice") {
-    if (!pc || !payload.candidate) return;
-    pc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch(err => console.error(err));
-  } else if (type === "hangup" || type === "reject" || type === "busy" || type === "missed") {
-    // Always accept end signals from current peer OR from the person you're chatting with
-    if (fromId === callPeerId || fromId === receiverId || (pendingOffer && fromId === pendingOffer.fromId)) {
-      let msg = "Simu imefungwa";
-      if (type === "busy") msg = "Busy";
-      else if (type === "reject") msg = "Imekataliwa";
-      else if (type === "missed") msg = "Missed call";
-      endCallUI(msg);
-    }
+    return;
   }
-}
 
-function avatarFallback(name) {
-  const n = encodeURIComponent((name || "U").toString().trim() || "U");
-  return "https://ui-avatars.com/api/?name=" + n + "&background=1EB53A&color=fff&size=220&bold=true";
+  if (type === "answer") {
+    // ONLY caller in ringing_out / connecting accepts answer
+    if (!callIsCaller || !pc) return;
+    if (callPhase !== "ringing_out" && callPhase !== "connecting") return;
+    callPhase = "connecting";
+    pc.setRemoteDescription(new RTCSessionDescription(payload.sdp))
+      .catch(err => console.error(err));
+    // DO NOT start timer here — wait until ICE connected
+    return;
+  }
+
+  if (type === "ice") {
+    if (!pc || !payload.candidate) return;
+    if (callPhase === "idle" || callPhase === "ending") return;
+    pc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch(() => {});
+    return;
+  }
+
+  if (type === "hangup" || type === "reject" || type === "busy" || type === "missed") {
+    const relevant =
+      fromId === callPeerId ||
+      fromId === receiverId ||
+      (pendingOffer && fromId === pendingOffer.fromId) ||
+      (sigCallId && sigCallId === activeCallId);
+
+    if (!relevant) return;
+    if (sigCallId) endedCallIds.add(sigCallId);
+    if (activeCallId) endedCallIds.add(activeCallId);
+
+    let msg = "Simu imefungwa";
+    if (type === "busy") msg = "Busy";
+    else if (type === "reject") msg = "Imekataliwa";
+    else if (type === "missed") msg = "Missed call";
+    endCallUI(msg);
+  }
 }
 
 function setCallPeerUI(info) {
@@ -3421,7 +3479,7 @@ function setCallPeerUI(info) {
   const name = (info.full_name || info.name || info.username || receiverFullName || receiverName || "Mtumiaji").toString();
   const username = (info.username || receiverName || "").toString().replace(/^@/, "");
   let avatar = (info.avatar || info.profile_pic || receiverAvatarUrl || "").toString();
-  if (avatar && avatar.indexOf("http") !== 0 && avatar.indexOf("/") !== 0) {
+  if (avatar && avatar.indexOf("http") !== 0) {
     avatar = resolveAvatarUrl(avatar, name);
   }
   const verified = !!(info.verified || info.is_verified);
@@ -3450,8 +3508,8 @@ function setCallPeerUI(info) {
 function showIncomingCall(isVideo, peerInfo) {
   pauseBgMusic();
   playRingtone();
-  callActive = true;
-  callConnected = false;
+  // Timer MUST stay hidden until connected
+  stopCallTimer();
   setCallPeerUI(peerInfo || {
     full_name: receiverFullName,
     username: receiverName,
@@ -3471,17 +3529,21 @@ function showIncomingCall(isVideo, peerInfo) {
 }
 
 async function startCall(video) {
-  if (callActive) {
+  if (callPhase !== "idle") {
     showToast("Tayari uko kwenye simu");
     return;
   }
+  endingLock = false;
   callIsVideo = !!video;
   callIsCaller = true;
   callPeerId = receiverId;
+  activeCallId = newCallId();
+  callPhase = "ringing_out";
   callActive = true;
   callConnected = false;
   pendingOffer = null;
   pauseBgMusic();
+  stopCallTimer();
 
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
@@ -3490,8 +3552,7 @@ async function startCall(video) {
     });
   } catch (e) {
     showToast("Ruhusu microphone" + (video ? "/camera" : "") + " kwenye browser");
-    callActive = false;
-    callPeerId = null;
+    resetCallState();
     return;
   }
 
@@ -3524,19 +3585,24 @@ async function startCall(video) {
 
   clearTimeout(callRingTimeout);
   callRingTimeout = setTimeout(() => {
-    if (callActive && !callConnected) {
-      // Hakuna answer → missed
-      sendSignal("missed", { video: callIsVideo, reason: "timeout" });
+    if (callPhase === "ringing_out" && !callConnected) {
+      const cid = activeCallId;
+      sendSignal("missed", { video: callIsVideo, reason: "timeout", call_id: cid });
+      if (cid) endedCallIds.add(cid);
       endCallUI("Hakuna majibu");
     }
   }, CALL_RING_TIMEOUT_MS);
 
   try {
-    const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: !!video });
+    const offer = await pc.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: !!video
+    });
     await pc.setLocalDescription(offer);
     await sendSignal("offer", {
       sdp: pc.localDescription,
       video: !!video,
+      call_id: activeCallId,
       from_full_name: (typeof myDisplayName !== "undefined" ? myDisplayName : "") || (typeof myUsername !== "undefined" ? myUsername : ""),
       from_username: typeof myUsername !== "undefined" ? myUsername : "",
       from_avatar: typeof myAvatarUrl !== "undefined" ? myAvatarUrl : "",
@@ -3549,13 +3615,15 @@ async function startCall(video) {
 }
 
 async function acceptCall() {
-  if (!pendingOffer) return;
+  if (!pendingOffer || callPhase !== "ringing_in") return;
   stopRingtone();
   clearTimeout(callRingTimeout);
+  callPhase = "connecting";
   callActive = true;
   callIsCaller = false;
   callPeerId = pendingOffer.fromId;
   callIsVideo = !!pendingOffer.payload.video;
+  if (pendingOffer.payload.call_id) activeCallId = pendingOffer.payload.call_id;
 
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
@@ -3581,9 +3649,9 @@ async function acceptCall() {
     await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer.payload.sdp));
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
-    await sendSignal("answer", { sdp: pc.localDescription });
+    await sendSignal("answer", { sdp: pc.localDescription, call_id: activeCallId });
     pendingOffer = null;
-    onCallConnected();
+    // Timer starts only when connectionState === connected
   } catch (e) {
     console.error(e);
     endCallUI("Hitilafu ya kupokea simu");
@@ -3591,26 +3659,39 @@ async function acceptCall() {
 }
 
 function rejectCall() {
+  if (callPhase !== "ringing_in" && callPhase !== "connecting") {
+    endCallUI("");
+    return;
+  }
   stopRingtone();
   clearTimeout(callRingTimeout);
-  sendSignal("reject", { video: callIsVideo, reason: "reject" });
+  const cid = activeCallId;
+  sendSignal("reject", { video: callIsVideo, reason: "reject", call_id: cid });
+  if (cid) endedCallIds.add(cid);
   pendingOffer = null;
-  callPeerId = null;
-  callActive = false;
-  callConnected = false;
-  document.getElementById("callOverlay").classList.remove("show");
+  endCallUI("Imekataliwa");
 }
 
 function setupPeerConnection() {
-  if (pc) { try { pc.close(); } catch (e) {} }
+  if (pc) {
+    try {
+      pc.onicecandidate = null;
+      pc.ontrack = null;
+      pc.onconnectionstatechange = null;
+      pc.close();
+    } catch (e) {}
+  }
   pc = new RTCPeerConnection(iceServers);
 
   pc.onicecandidate = (event) => {
-    if (event.candidate) sendSignal("ice", { candidate: event.candidate });
+    if (event.candidate && callPhase !== "idle" && callPhase !== "ending") {
+      sendSignal("ice", { candidate: event.candidate, call_id: activeCallId });
+    }
   };
 
   pc.ontrack = (event) => {
     const remote = document.getElementById("remoteVideo");
+    if (!remote) return;
     if (event.streams && event.streams[0]) {
       remote.srcObject = event.streams[0];
     } else {
@@ -3618,30 +3699,35 @@ function setupPeerConnection() {
       ms.addTrack(event.track);
       remote.srcObject = ms;
     }
-    // Voice-only: still attach remote audio via hidden video element
     remote.play().catch(() => {});
   };
 
   pc.onconnectionstatechange = () => {
     if (!pc) return;
     const state = pc.connectionState;
-    if (state === "connected") onCallConnected();
-    else if (state === "failed" || state === "closed") {
-      if (callActive) endCallUI("Muunganisho umekatika");
+    if (state === "connected") {
+      // ONLY now start timer — both sides after real media path
+      if (callPhase === "ringing_out" || callPhase === "connecting" || callPhase === "ringing_in") {
+        onCallConnected();
+      }
+    } else if (state === "failed" || state === "closed") {
+      if (callActive && callPhase !== "ending" && callPhase !== "idle") {
+        endCallUI("Muunganisho umekatika");
+      }
     } else if (state === "disconnected") {
-      // Brief blip — wait a moment before ending
       setTimeout(() => {
-        if (pc && pc.connectionState === "disconnected" && callActive) {
+        if (pc && pc.connectionState === "disconnected" && callActive && callPhase === "active") {
           endCallUI("Muunganisho umekatika");
         }
-      }, 4000);
+      }, 5000);
     }
   };
 }
 
 function onCallConnected() {
-  if (callConnected) return;
+  if (callConnected || callPhase === "ending" || callPhase === "idle") return;
   callConnected = true;
+  callPhase = "active";
   stopRingtone();
   clearTimeout(callRingTimeout);
   document.getElementById("callAvatar").classList.remove("call-ring-pulse");
@@ -3654,13 +3740,27 @@ function onCallConnected() {
   `;
 }
 
-function startCallTimer() {
+function stopCallTimer() {
+  clearInterval(callTimerInterval);
+  callTimerInterval = null;
   callSeconds = 0;
   const el = document.getElementById("callTimer");
+  if (el) {
+    el.classList.remove("show");
+    el.textContent = "00:00";
+  }
+}
+
+function startCallTimer() {
+  stopCallTimer();
+  callSeconds = 0;
+  const el = document.getElementById("callTimer");
+  if (!el) return;
   el.classList.add("show");
   el.textContent = "00:00";
-  clearInterval(callTimerInterval);
   callTimerInterval = setInterval(() => {
+    // Guard: never tick unless truly active
+    if (callPhase !== "active") return;
     callSeconds++;
     const m = String(Math.floor(callSeconds / 60)).padStart(2, "0");
     const s = String(callSeconds % 60).padStart(2, "0");
@@ -3691,53 +3791,90 @@ function toggleCam() {
 }
 
 function hangupCall(silent) {
+  if (callPhase === "idle" || callPhase === "ending") return;
   clearTimeout(callRingTimeout);
+  const cid = activeCallId;
+  const wasConnected = callConnected;
+  const duration = wasConnected ? callSeconds : 0;
+  const video = callIsVideo;
+
   if (!silent) {
-    const payload = {
-      video: callIsVideo,
-      duration: callConnected ? callSeconds : 0,
-      reason: callConnected ? "hangup" : "cancel"
-    };
-    if (!callConnected && callIsCaller) {
-      sendSignal("missed", Object.assign({}, payload, { reason: "cancel" }));
+    if (!wasConnected && callIsCaller) {
+      sendSignal("missed", { video: video, duration: 0, reason: "cancel", call_id: cid });
+    } else if (!wasConnected && !callIsCaller) {
+      sendSignal("reject", { video: video, reason: "reject", call_id: cid });
     } else {
-      sendSignal("hangup", payload);
+      sendSignal("hangup", { video: video, duration: duration, reason: "hangup", call_id: cid });
     }
   }
+  if (cid) endedCallIds.add(cid);
   endCallUI("Simu imefungwa");
 }
 
+function resetCallState() {
+  callPhase = "idle";
+  callActive = false;
+  callConnected = false;
+  callPeerId = null;
+  activeCallId = null;
+  pendingOffer = null;
+  isMuted = false;
+  camOff = false;
+  endingLock = false;
+}
+
 function endCallUI(statusText) {
+  if (endingLock) return;
+  endingLock = true;
+  callPhase = "ending";
+
   stopRingtone();
   clearTimeout(callRingTimeout);
-  clearInterval(callTimerInterval);
+  stopCallTimer();
+
   if (localStream) {
     localStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
     localStream = null;
   }
   if (pc) {
-    try { pc.onicecandidate = null; pc.ontrack = null; pc.onconnectionstatechange = null; pc.close(); } catch (e) {}
+    try {
+      pc.onicecandidate = null;
+      pc.ontrack = null;
+      pc.onconnectionstatechange = null;
+      pc.close();
+    } catch (e) {}
     pc = null;
   }
+
   const remote = document.getElementById("remoteVideo");
   const local = document.getElementById("localVideo");
   if (remote) remote.srcObject = null;
   if (local) local.srcObject = null;
-  document.getElementById("callVideoWrap").classList.remove("show");
-  document.getElementById("callAvatar").style.display = "block";
-  document.getElementById("callAvatar").classList.remove("call-ring-pulse");
-  document.getElementById("callTimer").classList.remove("show");
-  document.getElementById("callStatus").textContent = statusText || "Simu imefungwa";
-  callActive = false;
-  callConnected = false;
-  callPeerId = null;
-  pendingOffer = null;
-  isMuted = false;
-  camOff = false;
+
+  const wrap = document.getElementById("callVideoWrap");
+  if (wrap) wrap.classList.remove("show");
+  const av = document.getElementById("callAvatar");
+  if (av) {
+    av.style.display = "block";
+    av.classList.remove("call-ring-pulse");
+  }
+  const st = document.getElementById("callStatus");
+  if (st) st.textContent = statusText || "Simu imefungwa";
+
+  if (activeCallId) endedCallIds.add(activeCallId);
+  // keep endedCallIds but trim size
+  if (endedCallIds.size > 40) {
+    const arr = Array.from(endedCallIds);
+    arr.slice(0, arr.length - 20).forEach(id => endedCallIds.delete(id));
+  }
+
+  resetCallState();
+
   setTimeout(() => {
     const ov = document.getElementById("callOverlay");
-    if (ov && !callActive) ov.classList.remove("show");
-  }, 800);
+    if (ov && callPhase === "idle") ov.classList.remove("show");
+    endingLock = false;
+  }, 700);
 }
 
 function playRingtone() {
@@ -3750,15 +3887,18 @@ function playRingtone() {
       if (!isNaN(n) && n >= 0 && n <= 100) vol = n;
     }
     r.volume = vol / 100;
-    r.currentTime = 0;
+    try { r.currentTime = 0; } catch (e) {}
     r.play().catch(() => {});
   }
 }
 
 function stopRingtone() {
   const r = document.getElementById("ringtone");
-  if (r) { try { r.pause(); r.currentTime = 0; } catch (e) {} }
+  if (r) {
+    try { r.pause(); r.currentTime = 0; } catch (e) {}
+  }
 }
+
 
 </script>
 
