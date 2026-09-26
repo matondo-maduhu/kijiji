@@ -96,34 +96,33 @@
     }
     .kj-create-btn:active { transform: scale(0.94); box-shadow: 0 3px 10px var(--green-glow); }
 
-    /* FEED */
+    /* FEED — vertical scroll of watch-cards */
     .kj-feed {
       position: fixed; top: var(--header-h); left: 0; right: 0; bottom: 0;
       overflow-y: scroll; overflow-x: hidden;
-      scroll-snap-type: y mandatory;
       -webkit-overflow-scrolling: touch;
       background: var(--page-bg);
-      padding-bottom: var(--safe-bottom);
+      padding: 10px max(10px, var(--safe-left)) calc(16px + var(--safe-bottom)) max(10px, var(--safe-right));
     }
 
+    /* SLIDE — one full watch-card per post (video + body stacked) */
     .kj-slide {
-      position: relative; width: 100%;
-      height: calc(100dvh - var(--header-h) - var(--safe-bottom));
-      min-height: calc(100vh - var(--header-h));
-      scroll-snap-align: start; scroll-snap-stop: always;
-      display: flex; align-items: center; justify-content: center;
-      padding: var(--frame-gap);
-    }
-
-    /* FRAME — rounded container */
-    .kj-frame {
-      position: relative; width: 100%; height: 100%; max-width: 480px;
-      border-radius: var(--frame-radius); overflow: hidden;
-      background: linear-gradient(160deg, var(--frame-bg-2), var(--frame-bg));
+      position: relative; width: 100%; max-width: 520px; margin: 0 auto 16px;
+      border-radius: 20px; overflow: hidden;
+      background: linear-gradient(180deg, var(--frame-bg-2), var(--frame-bg));
       box-shadow:
-        0 20px 48px rgba(6,11,20,0.38),
-        0 6px 18px rgba(6,11,20,0.22),
+        0 20px 48px rgba(6,11,20,0.28),
+        0 6px 18px rgba(6,11,20,0.16),
         inset 0 0 0 1px rgba(255,255,255,0.06);
+    }
+    .kj-slide:last-child { margin-bottom: 4px; }
+
+    /* FRAME — video area only, fixed proportions (no longer fullscreen) */
+    .kj-frame {
+      position: relative; width: 100%;
+      aspect-ratio: 4 / 5; max-height: 62vh; min-height: 240px;
+      overflow: hidden;
+      background: linear-gradient(160deg, var(--frame-bg-2), var(--frame-bg));
     }
     .kj-media-wrap {
       position: absolute; inset: 0;
@@ -175,80 +174,7 @@
       text-shadow: 0 1px 2px rgba(0,0,0,0.4); white-space: nowrap;
     }
 
-    .kj-actions {
-      position: absolute; right: 10px; bottom: 52px; z-index: 5;
-      display: flex; flex-direction: column; align-items: center; gap: 14px;
-    }
-    .kj-act {
-      display: flex; flex-direction: column; align-items: center; gap: 2px;
-      background: none; border: none; color: #fff; cursor: pointer;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.4); padding: 0;
-    }
-    .kj-act .ico {
-      width: 46px; height: 46px; border-radius: 50%;
-      background: var(--glass);
-      backdrop-filter: blur(14px) saturate(160%); -webkit-backdrop-filter: blur(14px) saturate(160%);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; border: 1.5px solid var(--glass-border);
-      box-shadow: 0 4px 14px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.25);
-      transition: transform .15s cubic-bezier(.34,1.56,.64,1), background .2s ease, box-shadow .2s ease;
-    }
-    .kj-act:active .ico { transform: scale(0.86); }
-    .kj-act.active .ico {
-      background: linear-gradient(135deg, var(--green-mid), var(--green));
-      border-color: transparent;
-      box-shadow: 0 4px 16px var(--green-glow), inset 0 1px 0 rgba(255,255,255,0.35);
-    }
-    .kj-act.liked .ico {
-      background: linear-gradient(135deg, #f87171, var(--danger));
-      border-color: transparent;
-      box-shadow: 0 4px 16px rgba(239,68,68,0.45), inset 0 1px 0 rgba(255,255,255,0.35);
-    }
-    .kj-act .cnt { font-size: 11px; font-weight: 700; min-height: 13px; letter-spacing: 0.2px; }
-
-    .kj-avatar-btn {
-      width: 46px; height: 46px; border-radius: 50%; overflow: hidden;
-      border: 2.5px solid #fff;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.3), 0 0 0 3px var(--green-glow);
-      display: block; flex-shrink: 0;
-      transition: transform .15s ease;
-    }
-    .kj-avatar-btn:active { transform: scale(0.92); }
-    .kj-avatar-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-    .kj-info {
-      position: absolute; left: 12px; right: 64px; bottom: 48px; z-index: 5;
-      color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.45);
-    }
-    .kj-user-row {
-      display: flex; align-items: center; gap: 7px; margin-bottom: 5px; flex-wrap: wrap;
-    }
-    .kj-user-row a.kj-username {
-      color: #fff; text-decoration: none; font-weight: 800; font-size: 14.5px;
-      letter-spacing: 0.15px;
-    }
-    .kj-verified { color: #60a5fa; font-size: 13px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
-    .kj-stats-row {
-      display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;
-    }
-    .kj-stat {
-      display: inline-flex; align-items: center; gap: 4px;
-      font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.95);
-      background: var(--glass); padding: 3px 9px; border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.16);
-      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    }
-    .kj-stat i { font-size: 10px; }
-    .kj-caption {
-      font-size: 13px; line-height: 1.4; max-height: 3.9em;
-      overflow: hidden; word-break: break-word; white-space: pre-wrap;
-    }
-    .kj-caption.expanded { max-height: none; }
-    .kj-more-cap {
-      color: rgba(255,255,255,0.85); font-weight: 700; font-size: 12px;
-      cursor: pointer; margin-top: 3px; display: none; user-select: none;
-    }
-
+    /* Play hint + mute button live inside the video frame */
     .kj-play-hint {
       position: absolute; inset: 0; z-index: 3;
       display: flex; align-items: center; justify-content: center;
@@ -269,6 +195,112 @@
       transition: transform .15s ease;
     }
     .kj-mute-btn:active { transform: scale(0.88); }
+
+    /* BODY — everything below the video, matching the reference layout */
+    .kj-body { padding: 14px 14px 4px; color: #fff; }
+
+    .kj-post-title-row { margin-bottom: 10px; }
+    .kj-caption {
+      font-size: 15px; line-height: 1.45; font-weight: 700;
+      max-height: 3.9em; overflow: hidden; word-break: break-word; white-space: pre-wrap;
+    }
+    .kj-caption.expanded { max-height: none; }
+    .kj-caption .kj-tag { color: #60a5fa; }
+    .kj-more-cap {
+      color: rgba(255,255,255,0.7); font-weight: 700; font-size: 12px;
+      cursor: pointer; margin-top: 4px; display: none; user-select: none;
+    }
+    .kj-post-time {
+      font-size: 12px; color: rgba(255,255,255,0.55); margin-bottom: 14px;
+    }
+
+    .kj-uploader-row {
+      display: flex; align-items: center; gap: 11px; margin-bottom: 16px;
+    }
+    .kj-avatar-btn {
+      width: 44px; height: 44px; border-radius: 50%; overflow: hidden;
+      border: 2px solid rgba(255,255,255,0.16);
+      display: block; flex-shrink: 0;
+      transition: transform .15s ease;
+    }
+    .kj-avatar-btn:active { transform: scale(0.92); }
+    .kj-avatar-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .kj-uploader-meta { min-width: 0; flex: 1; }
+    .kj-username {
+      color: #fff; text-decoration: none; font-weight: 800; font-size: 14.5px;
+      letter-spacing: 0.15px; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .kj-verified { color: #60a5fa; font-size: 13px; }
+    .kj-uploader-stats {
+      display: flex; align-items: center; gap: 10px; margin-top: 3px;
+      font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.55);
+    }
+    .kj-uploader-stats i { font-size: 10px; margin-right: 3px; }
+
+    .kj-pill-row {
+      display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+      padding-bottom: 16px;
+    }
+    .kj-pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 10px 15px; border-radius: 999px;
+      background: var(--glass);
+      border: 1.5px solid var(--glass-border);
+      color: #fff; font-size: 12.5px; font-weight: 700; letter-spacing: 0.1px;
+      cursor: pointer; text-decoration: none;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      transition: transform .15s cubic-bezier(.34,1.56,.64,1), background .2s ease, box-shadow .2s ease;
+    }
+    .kj-pill:active { transform: scale(0.92); }
+    .kj-pill .ico { display: inline-flex; font-size: 15px; }
+    .kj-pill.active {
+      background: linear-gradient(135deg, var(--green-mid), var(--green));
+      border-color: transparent; box-shadow: 0 4px 14px var(--green-glow);
+    }
+    .kj-pill.liked {
+      background: linear-gradient(135deg, #f87171, var(--danger));
+      border-color: transparent; box-shadow: 0 4px 14px rgba(239,68,68,0.4);
+    }
+    .kj-pill-more { position: relative; padding: 10px 13px; }
+
+    .kj-comments-bar {
+      width: 100%; display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 15px; border-radius: 14px; margin-bottom: 4px;
+      background: var(--glass); border: 1px solid var(--glass-border);
+      color: #fff; font-size: 13.5px; font-weight: 700; cursor: pointer;
+      font-family: inherit;
+    }
+    .kj-comments-bar:active { background: var(--glass-strong); }
+    .kj-comments-bar i.chev { font-size: 12px; color: rgba(255,255,255,0.5); }
+
+    /* UP NEXT strip */
+    .kj-upnext { padding: 16px 14px calc(14px + var(--safe-bottom)); }
+    .kj-upnext-title {
+      font-size: 13px; font-weight: 800; color: rgba(255,255,255,0.85);
+      margin-bottom: 10px; letter-spacing: 0.2px;
+    }
+    .kj-upnext-list { display: flex; flex-direction: column; gap: 8px; }
+    .kj-upnext-item {
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px; padding: 8px; cursor: pointer; text-align: left;
+      font-family: inherit; color: #fff;
+    }
+    .kj-upnext-item:active { background: rgba(255,255,255,0.1); }
+    .kj-upnext-thumb {
+      width: 52px; height: 68px; border-radius: 8px; overflow: hidden; flex-shrink: 0;
+      background: linear-gradient(160deg, var(--frame-bg-2), var(--frame-bg));
+      display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.35);
+    }
+    .kj-upnext-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .kj-upnext-meta { min-width: 0; flex: 1; }
+    .kj-upnext-meta .t {
+      display: block; font-size: 13px; font-weight: 700; line-height: 1.3;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .kj-upnext-meta .u {
+      display: block; font-size: 11.5px; color: rgba(255,255,255,0.5); margin-top: 3px;
+    }
 
     .kj-empty {
       height: calc(100dvh - var(--header-h));
@@ -341,7 +373,32 @@
       padding: 0; font-family: inherit;
     }
     .kj-comment .see-more.show { display: inline-block; }
-    .kj-comment .time { font-size: 11px; color: var(--text-muted); margin-top: 5px; }
+    .kj-comment .row-actions {
+      display: flex; align-items: center; gap: 12px; margin-top: 5px;
+    }
+    .kj-comment .time { font-size: 11px; color: var(--text-muted); }
+    .kj-comment .reply-btn {
+      font-size: 11px; font-weight: 700; color: var(--green-dark);
+      background: none; border: none; cursor: pointer; padding: 0; font-family: inherit;
+    }
+    .kj-comment .kj-replies {
+      display: flex; flex-direction: column; gap: 0;
+    }
+    .kj-comment.kj-comment-reply {
+      padding: 10px 0; border-bottom: none;
+      border-left: 2px solid #f1f5f9; padding-left: 12px; margin-top: 10px;
+    }
+    .kj-comment.kj-comment-reply .kj-c-avatar { width: 32px; height: 32px; }
+
+    .kj-reply-banner {
+      display: none; align-items: center; justify-content: space-between;
+      padding: 8px 16px; background: var(--green-soft); border-top: 1px solid var(--border);
+      font-size: 12.5px; font-weight: 700; color: var(--green-dark); flex-shrink: 0;
+    }
+    .kj-reply-banner button {
+      width: 26px; height: 26px; border: none; border-radius: 50%;
+      background: rgba(15,23,42,0.06); color: var(--text-muted); cursor: pointer;
+    }
 
     .kj-comment-form {
       display: flex; gap: 8px; padding: 12px 16px;
@@ -452,11 +509,10 @@
     .kj-more-menu button.danger { color: var(--danger); }
 
     @media (min-width: 390px) {
-      .kj-actions { gap: 16px; }
-      .kj-act .ico { width: 46px; height: 46px; font-size: 19px; }
+      .kj-pill { padding: 10px 16px; font-size: 13px; }
     }
     @media (min-width: 430px) {
-      :root { --frame-gap: 12px; --frame-radius: 24px; }
+      .kj-slide { border-radius: 24px; }
     }
   </style>
 </head>
@@ -512,9 +568,23 @@
 
           {% if post.media_type == 'video' %}
           <button type="button" class="kj-mute-btn" aria-label="Mute"><i class="fa-solid fa-volume-xmark"></i></button>
+          <div class="kj-timebar">
+            <div class="kj-progress"><div></div></div>
+            <span class="kj-time-label">0:00 / 0:00</span>
+          </div>
           {% endif %}
+        </div>
 
-          <div class="kj-actions">
+        <div class="kj-body">
+          {% if post.caption %}
+          <div class="kj-post-title-row">
+            <p class="kj-caption">{{ post.caption }}</p>
+            <span class="kj-more-cap">ona zaidi</span>
+          </div>
+          {% endif %}
+          {% if post.created_at %}<div class="kj-post-time">{{ post.created_at }}</div>{% endif %}
+
+          <div class="kj-uploader-row">
             <a href="{{ url_for('profile', username=post.username) }}" class="kj-avatar-btn" title="@{{ post.username }}">
               {% set pic = post.profile_pic or '' %}
               {% if pic.startswith('http') %}
@@ -525,57 +595,55 @@
                 <img src="https://ui-avatars.com/api/?name={{ (post.full_name or post.username)|urlencode }}&background=1EB53A&color=fff&size=96" alt="">
               {% endif %}
             </a>
-            <button type="button" class="kj-act kj-like {{ 'liked' if post.user_liked else '' }}" data-action="like">
-              <span class="ico"><i class="fa-{{ 'solid' if post.user_liked else 'regular' }} fa-heart"></i></span>
+            <div class="kj-uploader-meta">
+              <a class="kj-username" href="{{ url_for('profile', username=post.username) }}">
+                @{{ post.username }}
+                {% if post.is_verified %}<i class="fa-solid fa-circle-check kj-verified"></i>{% endif %}
+              </a>
+              <div class="kj-uploader-stats">
+                <span><i class="fa-solid fa-user-group"></i>{{ post.followers_count|default(0) }} followers</span>
+                <span><i class="fa-solid fa-eye"></i>{{ post.views_count|default(0) }} viewers</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="kj-pill-row">
+            <button type="button" class="kj-pill kj-act kj-like {{ 'liked' if post.user_liked else '' }}" data-action="like">
+              <span class="ico"><i class="fa-{{ 'solid' if post.user_liked else 'regular' }} fa-thumbs-up"></i></span>
               <span class="cnt likes-cnt">{{ post.likes_count or 0 }}</span>
             </button>
-            <button type="button" class="kj-act" data-action="comment">
-              <span class="ico"><i class="fa-regular fa-comment"></i></span>
-              <span class="cnt comments-cnt">{{ post.comments_count or 0 }}</span>
+            <button type="button" class="kj-pill kj-act" data-action="share">
+              <span class="ico"><i class="fa-solid fa-share"></i></span> Share
             </button>
-            <button type="button" class="kj-act kj-save {{ 'active' if post.user_saved else '' }}" data-action="save">
-              <span class="ico"><i class="fa-{{ 'solid' if post.user_saved else 'regular' }} fa-bookmark"></i></span>
-              <span class="cnt saves-cnt">{{ post.saved_count or 0 }}</span>
+            <button type="button" class="kj-pill kj-act kj-save {{ 'active' if post.user_saved else '' }}" data-action="save">
+              <span class="ico"><i class="fa-{{ 'solid' if post.user_saved else 'regular' }} fa-bookmark"></i></span> Saved
             </button>
-            <button type="button" class="kj-act" data-action="share">
-              <span class="ico"><i class="fa-solid fa-share"></i></span>
-              <span class="cnt shares-cnt">{{ post.shares or 0 }}</span>
-            </button>
-            <button type="button" class="kj-act" data-action="more">
-              <span class="ico"><i class="fa-solid fa-ellipsis"></i></span>
-              <span class="cnt"></span>
-            </button>
-            <div class="kj-more-menu">
-              <button type="button" data-menu="report"><i class="fa-regular fa-flag"></i> Ripoti</button>
-              <button type="button" data-menu="block" class="danger"><i class="fa-solid fa-ban"></i> Zuia</button>
-              {% if session.get('user_id') %}
-              <button type="button" data-menu="repost"><i class="fa-solid fa-retweet"></i> Repost</button>
-              {% endif %}
+            <a href="{{ media_src }}" download class="kj-pill kj-download">
+              <span class="ico"><i class="fa-solid fa-download"></i></span> Offline
+            </a>
+            <div class="kj-pill-more">
+              <button type="button" class="kj-pill kj-act" data-action="more">
+                <span class="ico"><i class="fa-solid fa-ellipsis"></i></span>
+              </button>
+              <div class="kj-more-menu">
+                <button type="button" data-menu="report"><i class="fa-regular fa-flag"></i> Ripoti</button>
+                <button type="button" data-menu="block" class="danger"><i class="fa-solid fa-ban"></i> Zuia</button>
+                {% if session.get('user_id') %}
+                <button type="button" data-menu="repost"><i class="fa-solid fa-retweet"></i> Repost</button>
+                {% endif %}
+              </div>
             </div>
           </div>
 
-          <div class="kj-info">
-            <div class="kj-user-row">
-              <a class="kj-username" href="{{ url_for('profile', username=post.username) }}">@{{ post.username }}</a>
-              {% if post.is_verified %}<i class="fa-solid fa-circle-check kj-verified"></i>{% endif %}
-            </div>
-            <div class="kj-stats-row">
-              <span class="kj-stat"><i class="fa-solid fa-heart"></i> <span class="likes-cnt">{{ post.likes_count or 0 }}</span></span>
-              <span class="kj-stat"><i class="fa-solid fa-bookmark"></i> <span class="saves-cnt">{{ post.saved_count or 0 }}</span> hifadhi</span>
-              <span class="kj-stat"><i class="fa-solid fa-comment"></i> <span class="comments-cnt">{{ post.comments_count or 0 }}</span></span>
-            </div>
-            {% if post.caption %}
-            <p class="kj-caption">{{ post.caption }}</p>
-            <span class="kj-more-cap">ona zaidi</span>
-            {% endif %}
-          </div>
+          <button type="button" class="kj-comments-bar kj-act" data-action="comment">
+            <span>Maoni <span class="comments-cnt">{{ post.comments_count or 0 }}</span></span>
+            <i class="fa-solid fa-chevron-right chev"></i>
+          </button>
+        </div>
 
-          {% if post.media_type == 'video' %}
-          <div class="kj-timebar">
-            <div class="kj-progress"><div></div></div>
-            <span class="kj-time-label">0:00 / 0:00</span>
-          </div>
-          {% endif %}
+        <div class="kj-upnext">
+          <div class="kj-upnext-title">Ijayo</div>
+          <div class="kj-upnext-list"></div>
         </div>
       </article>
       {% endfor %}
@@ -603,6 +671,10 @@
     </div>
     <div class="kj-sheet-body" id="commentsList"><p style="text-align:center;color:#94a3b8;padding:24px;">Inapakia...</p></div>
     {% if session.get('user_id') %}
+    <div class="kj-reply-banner" id="replyBanner">
+      <span class="who"></span>
+      <button type="button" id="cancelReplyBtn"><i class="fa-solid fa-xmark"></i></button>
+    </div>
     <form class="kj-comment-form" id="commentForm">
       <input type="text" id="commentInput" placeholder="Andika maoni..." maxlength="500" autocomplete="off">
       <button type="submit"><i class="fa-solid fa-paper-plane"></i></button>
@@ -794,11 +866,12 @@
       if (label) label.textContent = formatTime(video.currentTime) + ' / ' + formatTime(video.duration || 0);
     }
 
-    var slides = Array.from(document.querySelectorAll('.kj-slide'));
+    var frames = Array.from(document.querySelectorAll('.kj-frame'));
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
-        var slide = entry.target, video = slide.querySelector('video');
-        if (!video) return;
+        var frame = entry.target, slide = frame.closest('.kj-slide');
+        var video = frame.querySelector('video');
+        if (!video || !slide) return;
         if (entry.isIntersecting && entry.intersectionRatio >= 0.55) {
           pauseAllExcept(video);
           video.muted = globalMuted;
@@ -808,7 +881,7 @@
         } else video.pause();
       });
     }, { threshold: [0.55] });
-    slides.forEach(function (s) { io.observe(s); });
+    frames.forEach(function (f) { io.observe(f); });
 
     document.querySelectorAll('.kj-slide video').forEach(function (video) {
       var slide = video.closest('.kj-slide');
@@ -828,13 +901,14 @@
 
     var lastTap = 0;
     feed.addEventListener('click', function (e) {
+      var frame = e.target.closest('.kj-frame');
+      if (!frame) return; /* play/pause + double-tap-like only apply to the video area now */
       if (e.target.closest('.kj-act') || e.target.closest('.kj-mute-btn') ||
           e.target.closest('.kj-avatar-btn') || e.target.closest('.kj-more-menu') ||
           e.target.closest('.kj-more-cap') || e.target.closest('a') || e.target.closest('.kj-timebar')) return;
-      var slide = e.target.closest('.kj-slide');
+      var slide = frame.closest('.kj-slide');
       if (!slide) return;
-      var frame = slide.querySelector('.kj-frame');
-      var video = slide.querySelector('video');
+      var video = frame.querySelector('video');
       var now = Date.now();
       if (now - lastTap < 320) {
         lastTap = 0;
@@ -988,9 +1062,70 @@
       }).catch(function () {});
     }
 
+    var replyTargetId = null;
+    function startReply(commentId, username) {
+      replyTargetId = commentId;
+      var input = document.getElementById('commentInput');
+      var banner = document.getElementById('replyBanner');
+      if (banner) {
+        banner.classList.add('show'); banner.style.display = 'flex';
+        banner.querySelector('.who').textContent = 'Unamjibu @' + username;
+      }
+      if (input) { input.placeholder = 'Jibu @' + username + '...'; input.focus(); }
+    }
+    function cancelReply() {
+      replyTargetId = null;
+      var banner = document.getElementById('replyBanner');
+      if (banner) banner.style.display = 'none';
+      var input = document.getElementById('commentInput');
+      if (input) input.placeholder = 'Andika maoni...';
+    }
+    var cancelReplyBtn = document.getElementById('cancelReplyBtn');
+    if (cancelReplyBtn) cancelReplyBtn.addEventListener('click', cancelReply);
+
+    /* Renders one comment plus any nested replies (c.replies), to unlimited depth */
+    function renderComment(c, depth) {
+      depth = depth || 0;
+      var pic = c.profile_pic || '';
+      var src = pic.indexOf('http') === 0 ? pic : (pic ? '/static/uploads/' + pic : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(c.username || 'U') + '&background=1EB53A&color=fff&size=80');
+      var profileUrl = '/profile/' + encodeURIComponent(c.username || '');
+      var row = document.createElement('div');
+      row.className = 'kj-comment' + (depth > 0 ? ' kj-comment-reply' : '');
+      row.innerHTML =
+        '<a class="kj-c-avatar" href="' + profileUrl + '"><img src="' + src + '" alt=""></a>' +
+        '<div class="meta">' +
+          '<a class="kj-c-name" href="' + profileUrl + '">@' + (c.username || '') + '</a>' +
+          '<div class="txt clamped"></div>' +
+          '<button type="button" class="see-more">ona zaidi</button>' +
+          '<div class="row-actions"><span class="time"></span><button type="button" class="reply-btn">Jibu</button></div>' +
+          '<div class="kj-replies"></div>' +
+        '</div>';
+      row.querySelector('.txt').textContent = c.content || '';
+      row.querySelector('.time').textContent = c.created_at || '';
+      row.querySelector('.reply-btn').addEventListener('click', function () {
+        startReply(c.id, c.username || '');
+      });
+      var txtEl = row.querySelector('.txt'), moreBtn = row.querySelector('.see-more');
+      requestAnimationFrame(function () {
+        if (txtEl.scrollHeight > txtEl.clientHeight + 2) {
+          moreBtn.classList.add('show');
+          moreBtn.addEventListener('click', function () {
+            txtEl.classList.toggle('clamped');
+            moreBtn.textContent = txtEl.classList.contains('clamped') ? 'ona zaidi' : 'fanya ndogo';
+          });
+        }
+      });
+      if (c.replies && c.replies.length) {
+        var repliesBox = row.querySelector('.kj-replies');
+        c.replies.forEach(function (r) { repliesBox.appendChild(renderComment(r, depth + 1)); });
+      }
+      return row;
+    }
+
     function openComments(postId) {
       if (!requireLogin()) return;
       currentCommentPostId = postId;
+      cancelReply();
       openSheet('commentsSheet');
       var list = document.getElementById('commentsList');
       list.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:24px;">Inapakia...</p>';
@@ -1002,33 +1137,7 @@
           return;
         }
         list.innerHTML = '';
-        comments.forEach(function (c) {
-          var pic = c.profile_pic || '';
-          var src = pic.indexOf('http') === 0 ? pic : (pic ? '/static/uploads/' + pic : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(c.username || 'U') + '&background=1EB53A&color=fff&size=80');
-          var profileUrl = '/profile/' + encodeURIComponent(c.username || '');
-          var row = document.createElement('div');
-          row.className = 'kj-comment';
-          row.innerHTML =
-            '<a class="kj-c-avatar" href="' + profileUrl + '"><img src="' + src + '" alt=""></a>' +
-            '<div class="meta">' +
-              '<a class="kj-c-name" href="' + profileUrl + '">@' + (c.username || '') + '</a>' +
-              '<div class="txt clamped"></div>' +
-              '<button type="button" class="see-more">ona zaidi</button>' +
-              '<div class="time"></div></div>';
-          row.querySelector('.txt').textContent = c.content || '';
-          row.querySelector('.time').textContent = c.created_at || '';
-          list.appendChild(row);
-          var txtEl = row.querySelector('.txt'), moreBtn = row.querySelector('.see-more');
-          requestAnimationFrame(function () {
-            if (txtEl.scrollHeight > txtEl.clientHeight + 2) {
-              moreBtn.classList.add('show');
-              moreBtn.addEventListener('click', function () {
-                txtEl.classList.toggle('clamped');
-                moreBtn.textContent = txtEl.classList.contains('clamped') ? 'ona zaidi' : 'fanya ndogo';
-              });
-            }
-          });
-        });
+        comments.forEach(function (c) { list.appendChild(renderComment(c, 0)); });
       }).catch(function () {
         list.innerHTML = '<p style="text-align:center;color:#ef4444;padding:24px;">Imeshindikana</p>';
       });
@@ -1042,13 +1151,16 @@
         var input = document.getElementById('commentInput');
         var content = (input.value || '').trim();
         if (!content) return;
+        var payload = { content: content };
+        if (replyTargetId) payload.parent_id = replyTargetId;
         fetch('/kijiji/comment/' + currentCommentPostId, {
           method: 'POST', credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-          body: JSON.stringify({ content: content })
+          body: JSON.stringify(payload)
         }).then(function (r) { return r.json(); }).then(function (c) {
           if (c.error) { toast(c.error); return; }
           input.value = '';
+          cancelReply();
           openComments(currentCommentPostId);
           var slide = document.querySelector('.kj-slide[data-post-id="' + currentCommentPostId + '"]');
           if (slide) {
@@ -1077,6 +1189,23 @@
     });
 
     document.querySelectorAll('.kj-caption').forEach(function (cap) {
+      var raw = cap.textContent;
+      if (/#[\w\u00C0-\u024f]+/.test(raw)) {
+        var frag = document.createDocumentFragment();
+        var lastIndex = 0;
+        raw.replace(/(#[\w\u00C0-\u024f]+)/g, function (match, tag, offset) {
+          frag.appendChild(document.createTextNode(raw.slice(lastIndex, offset)));
+          var span = document.createElement('span');
+          span.className = 'kj-tag';
+          span.textContent = tag;
+          frag.appendChild(span);
+          lastIndex = offset + tag.length;
+          return match;
+        });
+        frag.appendChild(document.createTextNode(raw.slice(lastIndex)));
+        cap.innerHTML = '';
+        cap.appendChild(frag);
+      }
       if (cap.scrollHeight > cap.clientHeight + 4) {
         var more = cap.parentElement.querySelector('.kj-more-cap');
         if (more) {
@@ -1089,6 +1218,36 @@
         }
       }
     });
+
+    /* UP NEXT — build a small queue of the following posts under each card */
+    (function buildUpNext() {
+      var allSlides = Array.from(document.querySelectorAll('.kj-slide[data-post-id]'));
+      allSlides.forEach(function (slide, idx) {
+        var box = slide.querySelector('.kj-upnext');
+        var list = slide.querySelector('.kj-upnext-list');
+        if (!box || !list) return;
+        var nexts = allSlides.slice(idx + 1, idx + 4);
+        if (!nexts.length) { box.style.display = 'none'; return; }
+        nexts.forEach(function (n) {
+          var media = n.querySelector('.kj-media-wrap img');
+          var thumbSrc = media ? media.src : '';
+          var unameEl = n.querySelector('.kj-username');
+          var capEl = n.querySelector('.kj-caption');
+          var item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'kj-upnext-item';
+          item.innerHTML =
+            '<span class="kj-upnext-thumb">' + (thumbSrc ? '<img src="' + thumbSrc + '" alt="">' : '<i class="fa-solid fa-play"></i>') + '</span>' +
+            '<span class="kj-upnext-meta"><span class="t"></span><span class="u"></span></span>';
+          item.querySelector('.t').textContent = capEl ? capEl.textContent.trim().slice(0, 60) : 'Kijiji';
+          item.querySelector('.u').textContent = unameEl ? unameEl.textContent.trim() : '';
+          item.addEventListener('click', function () {
+            n.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+          list.appendChild(item);
+        });
+      });
+    })();
 
     feed.addEventListener('scroll', function () {
       document.querySelectorAll('.kj-more-menu.open').forEach(function (m) { m.classList.remove('open'); });
