@@ -961,7 +961,7 @@ def register_chat_routes(app):
                 """UPDATE call_signals SET is_read = 1
                    WHERE to_user_id = ?
                      AND is_read = 0
-                     AND created_at < datetime('now', '-3 minutes')""",
+                     AND created_at < datetime('now', '-10 minutes')""",
                 (me,)
             )
             conn.commit()
@@ -974,7 +974,7 @@ def register_chat_routes(app):
                WHERE to_user_id = ?
                  AND id > ?
                  AND is_read = 0
-                 AND created_at >= datetime('now', '-90 seconds')
+                 AND created_at >= datetime('now', '-3 minutes')
                ORDER BY id ASC
                LIMIT 80""",
             (me, after_id)
