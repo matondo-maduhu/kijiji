@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#1EB53A">
+  <meta name="theme-color" content="#eef1f5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Kijiji — Media Feed</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,666 +16,360 @@
       --green-dark: #15803d;
       --green-soft: #e8f8ec;
       --green-mid: #34d399;
-      --bg: #f4f6f8;
+      --page-bg: #eef1f5;
       --surface: #ffffff;
       --text: #0f172a;
       --text-muted: #64748b;
       --border: #e2e8f0;
       --danger: #ef4444;
-      --shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
       --safe-top: env(safe-area-inset-top, 0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
       --safe-left: env(safe-area-inset-left, 0px);
       --safe-right: env(safe-area-inset-right, 0px);
-      --header-h: calc(52px + var(--safe-top));
+      --header-h: calc(54px + var(--safe-top));
+      --frame-radius: 22px;
+      --frame-gap: 10px;
     }
-
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     html, body {
-      height: 100%;
-      width: 100%;
+      height: 100%; width: 100%;
       font-family: "Inter", system-ui, -apple-system, sans-serif;
-      background: #0f172a;
-      color: var(--text);
+      background: var(--page-bg); color: var(--text);
       overflow: hidden;
       -webkit-tap-highlight-color: transparent;
       -webkit-text-size-adjust: 100%;
     }
 
-    /* ========== HEADER (overlay juu ya video) ========== */
+    /* HEADER — nje ya frame */
     .kj-header {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      height: var(--header-h);
-      padding-top: var(--safe-top);
-      z-index: 50;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      position: fixed; top: 0; left: 0; right: 0;
+      height: var(--header-h); padding-top: var(--safe-top);
+      z-index: 50; display: flex; align-items: center; justify-content: space-between;
       padding-left: max(14px, var(--safe-left));
       padding-right: max(14px, var(--safe-right));
-      background: linear-gradient(to bottom, rgba(15,23,42,0.55) 0%, transparent 100%);
-      pointer-events: none;
+      background: var(--page-bg);
     }
-    .kj-header > * { pointer-events: auto; }
-
     .kj-header .left, .kj-header .right {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 88px;
+      display: flex; align-items: center; gap: 10px; min-width: 88px;
     }
     .kj-header .right { justify-content: flex-end; }
-
     .kj-back {
-      width: 40px; height: 40px;
-      border-radius: 50%;
-      border: none;
-      background: rgba(255,255,255,0.92);
-      color: var(--green-dark);
+      width: 40px; height: 40px; border-radius: 50%; border: none;
+      background: var(--green-soft); color: var(--green-dark);
       display: flex; align-items: center; justify-content: center;
-      font-size: 15px;
-      cursor: pointer;
-      text-decoration: none;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+      font-size: 15px; cursor: pointer; text-decoration: none;
     }
     .kj-back:active { transform: scale(0.92); }
-
     .kj-title {
-      font-weight: 800;
-      font-size: 17px;
-      color: #fff;
-      letter-spacing: -0.3px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.35);
+      font-weight: 800; font-size: 17px; color: var(--text);
+      display: flex; align-items: center; gap: 8px;
     }
     .kj-title span.icon {
-      width: 26px; height: 26px;
-      border-radius: 8px;
+      width: 26px; height: 26px; border-radius: 8px;
       background: linear-gradient(135deg, var(--green), var(--green-mid));
       display: flex; align-items: center; justify-content: center;
-      color: #fff;
-      font-size: 12px;
-      box-shadow: 0 2px 8px rgba(30,181,58,0.4);
+      color: #fff; font-size: 12px;
     }
-
     .kj-create-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 9px 14px;
-      border: none;
-      border-radius: 999px;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 14px; border: none; border-radius: 999px;
       background: linear-gradient(135deg, var(--green), var(--green-dark));
-      color: #fff;
-      font-weight: 700;
-      font-size: 13px;
-      cursor: pointer;
-      box-shadow: 0 4px 14px rgba(30, 181, 58, 0.4);
-      text-decoration: none;
+      color: #fff; font-weight: 700; font-size: 13px; cursor: pointer;
+      box-shadow: 0 4px 14px rgba(30,181,58,0.35); text-decoration: none;
     }
     .kj-create-btn:active { transform: scale(0.96); }
 
-    /* ========== FEED — FULL SCREEN ========== */
+    /* FEED */
     .kj-feed {
-      position: fixed;
-      inset: 0;
-      overflow-y: scroll;
-      overflow-x: hidden;
+      position: fixed; top: var(--header-h); left: 0; right: 0; bottom: 0;
+      overflow-y: scroll; overflow-x: hidden;
       scroll-snap-type: y mandatory;
       -webkit-overflow-scrolling: touch;
-      scroll-behavior: smooth;
-      background: #0f172a;
+      background: var(--page-bg);
+      padding-bottom: var(--safe-bottom);
     }
 
     .kj-slide {
-      position: relative;
-      width: 100%;
-      height: 100vh;
-      height: 100dvh;
-      scroll-snap-align: start;
-      scroll-snap-stop: always;
-      background: #0f172a;
-      overflow: hidden;
-    }
-
-    /* MEDIA: jaza skrini yote (portrait full-bleed) */
-    .kj-media-wrap {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      background: #0f172a;
-    }
-
-    .kj-media-wrap video,
-    .kj-media-wrap img {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      /* cover = jaza skrini yote kama TikTok/Reels */
-      object-fit: cover;
-      object-position: center center;
-      display: block;
-    }
-
-    /* Gradient chini kwa caption readability */
-    .kj-gradient {
-      position: absolute;
-      left: 0; right: 0; bottom: 0;
-      height: 48%;
-      max-height: 320px;
-      background: linear-gradient(
-        to top,
-        rgba(15,23,42,0.88) 0%,
-        rgba(15,23,42,0.55) 40%,
-        rgba(15,23,42,0.15) 70%,
-        transparent 100%
-      );
-      pointer-events: none;
-      z-index: 2;
-    }
-
-    /* Side actions — Pro Max safe */
-    .kj-actions {
-      position: absolute;
-      right: max(10px, var(--safe-right));
-      bottom: calc(130px + var(--safe-bottom));
-      z-index: 5;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .kj-act {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 3px;
-      background: none;
-      border: none;
-      color: #fff;
-      cursor: pointer;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.4);
-      padding: 0;
-    }
-    .kj-act .ico {
-      width: 48px; height: 48px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.18);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      position: relative; width: 100%;
+      height: calc(100dvh - var(--header-h) - var(--safe-bottom));
+      min-height: calc(100vh - var(--header-h));
+      scroll-snap-align: start; scroll-snap-stop: always;
       display: flex; align-items: center; justify-content: center;
-      font-size: 20px;
-      transition: transform .15s, background .15s;
-      border: 1.5px solid rgba(255,255,255,0.28);
-    }
-    .kj-act:active .ico { transform: scale(0.88); }
-    .kj-act.active .ico {
-      background: rgba(30,181,58,0.95);
-      border-color: transparent;
-    }
-    .kj-act.liked .ico {
-      background: #ef4444;
-      border-color: transparent;
-      color: #fff;
-    }
-    .kj-act .cnt {
-      font-size: 12px;
-      font-weight: 700;
-      min-height: 14px;
-      line-height: 1.2;
+      padding: var(--frame-gap);
     }
 
-    .kj-avatar-btn {
-      width: 50px; height: 50px;
-      border-radius: 50%;
-      overflow: hidden;
-      border: 2.5px solid #fff;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-      margin-bottom: 2px;
-      display: block;
-      flex-shrink: 0;
+    /* FRAME — rounded container */
+    .kj-frame {
+      position: relative; width: 100%; height: 100%; max-width: 480px;
+      border-radius: var(--frame-radius); overflow: hidden;
+      background: #0f172a;
+      box-shadow: 0 8px 32px rgba(15,23,42,0.18), 0 2px 8px rgba(15,23,42,0.08);
     }
-    .kj-avatar-btn img {
-      width: 100%; height: 100%;
-      object-fit: cover;
-      display: block;
+    .kj-media-wrap {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: #0f172a;
+    }
+    .kj-media-wrap video, .kj-media-wrap img {
+      width: 100%; height: 100%; display: block;
+      object-fit: contain; object-position: center center;
+      background: #0f172a;
+    }
+    .kj-media-wrap video.fit-cover,
+    .kj-media-wrap img.fit-cover { object-fit: cover; }
+    .kj-media-wrap video.fit-contain,
+    .kj-media-wrap img.fit-contain { object-fit: contain; }
+
+    .kj-gradient {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      height: 46%; max-height: 280px; z-index: 2; pointer-events: none;
+      background: linear-gradient(to top,
+        rgba(15,23,42,0.9) 0%, rgba(15,23,42,0.55) 40%,
+        rgba(15,23,42,0.12) 75%, transparent 100%);
     }
 
-    /* Bottom info — username + caption + stats */
-    .kj-info {
-      position: absolute;
-      left: max(14px, var(--safe-left));
-      right: 72px;
-      bottom: calc(28px + var(--safe-bottom));
-      z-index: 5;
-      color: #fff;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.45);
+    /* Time bar ndani ya frame */
+    .kj-timebar {
+      position: absolute; left: 12px; right: 12px; bottom: 10px; z-index: 7;
+      display: flex; align-items: center; gap: 8px;
     }
-
-    .kj-user-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 6px;
-      flex-wrap: wrap;
-    }
-    .kj-user-row a.kj-username {
-      color: #fff;
-      text-decoration: none;
-      font-weight: 800;
-      font-size: 15px;
-      letter-spacing: -0.2px;
-    }
-    .kj-user-row a.kj-username:active { opacity: 0.8; }
-    .kj-verified {
-      color: #60a5fa;
-      font-size: 14px;
-      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
-    }
-
-    .kj-stats-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 8px;
-      flex-wrap: wrap;
-    }
-    .kj-stat {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 12px;
-      font-weight: 600;
-      color: rgba(255,255,255,0.9);
-      background: rgba(0,0,0,0.25);
-      padding: 3px 9px;
-      border-radius: 999px;
-      backdrop-filter: blur(4px);
-    }
-    .kj-stat i { font-size: 11px; opacity: 0.9; }
-
-    .kj-caption {
-      font-size: 14px;
-      line-height: 1.45;
-      max-height: 4.35em; /* ~3 lines */
-      overflow: hidden;
-      word-break: break-word;
-      white-space: pre-wrap;
-    }
-    .kj-caption.expanded { max-height: none; }
-    .kj-more-cap {
-      color: rgba(255,255,255,0.85);
-      font-weight: 700;
-      font-size: 13px;
-      cursor: pointer;
-      margin-top: 4px;
-      display: none;
-      user-select: none;
-    }
-
-    .kj-play-hint {
-      position: absolute;
-      inset: 0;
-      z-index: 3;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity .2s;
-    }
-    .kj-play-hint.show { opacity: 1; }
-    .kj-play-hint i {
-      font-size: 56px;
-      color: rgba(255,255,255,0.92);
-      filter: drop-shadow(0 2px 10px rgba(0,0,0,0.4));
-    }
-
-    .kj-mute-btn {
-      position: absolute;
-      top: calc(var(--header-h) + 8px);
-      right: max(12px, var(--safe-right));
-      z-index: 6;
-      width: 40px; height: 40px;
-      border-radius: 50%;
-      border: none;
-      background: rgba(15,23,42,0.5);
-      color: #fff;
-      font-size: 14px;
-      cursor: pointer;
-      backdrop-filter: blur(8px);
-    }
-
     .kj-progress {
-      position: absolute;
-      left: 0; right: 0; bottom: 0;
-      height: 3px;
-      background: rgba(255,255,255,0.2);
-      z-index: 6;
+      flex: 1; height: 4px; border-radius: 4px;
+      background: rgba(255,255,255,0.25); overflow: hidden;
     }
     .kj-progress > div {
-      height: 100%;
-      width: 0%;
+      height: 100%; width: 0%; border-radius: 4px;
       background: linear-gradient(90deg, var(--green), var(--green-mid));
       transition: width .08s linear;
     }
+    .kj-time-label {
+      font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.92);
+      font-variant-numeric: tabular-nums; min-width: 72px; text-align: right;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.4); white-space: nowrap;
+    }
 
-    /* Empty */
+    .kj-actions {
+      position: absolute; right: 10px; bottom: 52px; z-index: 5;
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+    }
+    .kj-act {
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      background: none; border: none; color: #fff; cursor: pointer;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.4); padding: 0;
+    }
+    .kj-act .ico {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: rgba(255,255,255,0.18);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; border: 1.5px solid rgba(255,255,255,0.28);
+    }
+    .kj-act:active .ico { transform: scale(0.88); }
+    .kj-act.active .ico { background: rgba(30,181,58,0.95); border-color: transparent; }
+    .kj-act.liked .ico { background: #ef4444; border-color: transparent; }
+    .kj-act .cnt { font-size: 11px; font-weight: 700; min-height: 13px; }
+
+    .kj-avatar-btn {
+      width: 46px; height: 46px; border-radius: 50%; overflow: hidden;
+      border: 2.5px solid #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+      display: block; flex-shrink: 0;
+    }
+    .kj-avatar-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .kj-info {
+      position: absolute; left: 12px; right: 64px; bottom: 48px; z-index: 5;
+      color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.45);
+    }
+    .kj-user-row {
+      display: flex; align-items: center; gap: 7px; margin-bottom: 5px; flex-wrap: wrap;
+    }
+    .kj-user-row a.kj-username {
+      color: #fff; text-decoration: none; font-weight: 800; font-size: 14px;
+    }
+    .kj-verified { color: #60a5fa; font-size: 13px; }
+    .kj-stats-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;
+    }
+    .kj-stat {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.92);
+      background: rgba(0,0,0,0.28); padding: 3px 8px; border-radius: 999px;
+      backdrop-filter: blur(4px);
+    }
+    .kj-stat i { font-size: 10px; }
+    .kj-caption {
+      font-size: 13px; line-height: 1.4; max-height: 3.9em;
+      overflow: hidden; word-break: break-word; white-space: pre-wrap;
+    }
+    .kj-caption.expanded { max-height: none; }
+    .kj-more-cap {
+      color: rgba(255,255,255,0.85); font-weight: 700; font-size: 12px;
+      cursor: pointer; margin-top: 3px; display: none; user-select: none;
+    }
+
+    .kj-play-hint {
+      position: absolute; inset: 0; z-index: 3;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none; opacity: 0; transition: opacity .2s;
+    }
+    .kj-play-hint.show { opacity: 1; }
+    .kj-play-hint i {
+      font-size: 52px; color: rgba(255,255,255,0.92);
+      filter: drop-shadow(0 2px 10px rgba(0,0,0,0.4));
+    }
+    .kj-mute-btn {
+      position: absolute; top: 12px; right: 12px; z-index: 6;
+      width: 36px; height: 36px; border-radius: 50%; border: none;
+      background: rgba(15,23,42,0.5); color: #fff; font-size: 13px;
+      cursor: pointer; backdrop-filter: blur(8px);
+    }
+
     .kj-empty {
-      height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 32px;
-      text-align: center;
-      color: #94a3b8;
-      background: var(--bg);
+      height: calc(100dvh - var(--header-h));
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 32px; text-align: center; color: var(--text-muted);
     }
     .kj-empty .big { font-size: 56px; margin-bottom: 12px; }
     .kj-empty h2 { color: var(--text); font-size: 20px; margin-bottom: 8px; }
     .kj-empty p { font-size: 14px; max-width: 280px; line-height: 1.5; margin-bottom: 20px; }
 
-    /* ========== MODALS ========== */
     .kj-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 100;
-      background: rgba(15, 23, 42, 0.5);
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity .25s, visibility .25s;
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(15,23,42,0.5);
+      opacity: 0; visibility: hidden; transition: opacity .25s, visibility .25s;
     }
     .kj-overlay.open { opacity: 1; visibility: visible; }
-
     .kj-sheet {
-      position: fixed;
-      left: 0; right: 0; bottom: 0;
-      z-index: 101;
-      background: var(--surface);
-      border-radius: 20px 20px 0 0;
-      max-height: min(88vh, 720px);
-      transform: translateY(110%);
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 101;
+      background: var(--surface); border-radius: 20px 20px 0 0;
+      max-height: min(88vh, 720px); transform: translateY(110%);
       transition: transform .3s cubic-bezier(0.32, 0.72, 0, 1);
-      display: flex;
-      flex-direction: column;
+      display: flex; flex-direction: column;
       box-shadow: 0 -8px 40px rgba(0,0,0,0.15);
       padding-bottom: var(--safe-bottom);
     }
     .kj-sheet.open { transform: translateY(0); }
-
     .kj-sheet-handle {
-      width: 40px; height: 4px;
-      background: #cbd5e1;
-      border-radius: 4px;
-      margin: 10px auto 6px;
-      flex-shrink: 0;
+      width: 40px; height: 4px; background: #cbd5e1; border-radius: 4px;
+      margin: 10px auto 6px; flex-shrink: 0;
     }
     .kj-sheet-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 18px 12px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 18px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
     }
     .kj-sheet-head h3 { font-size: 16px; font-weight: 700; }
     .kj-sheet-close {
-      width: 36px; height: 36px;
-      border: none;
-      border-radius: 50%;
-      background: var(--bg);
-      color: var(--text-muted);
-      font-size: 16px;
-      cursor: pointer;
+      width: 36px; height: 36px; border: none; border-radius: 50%;
+      background: #f1f5f9; color: var(--text-muted); font-size: 16px; cursor: pointer;
     }
     .kj-sheet-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 16px;
-      -webkit-overflow-scrolling: touch;
+      flex: 1; overflow-y: auto; padding: 12px 16px; -webkit-overflow-scrolling: touch;
     }
 
-    /* Comments */
     .kj-comment {
-      display: flex;
-      gap: 12px;
-      padding: 12px 0;
-      border-bottom: 1px solid #f1f5f9;
+      display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f1f5f9;
     }
     .kj-comment a.kj-c-avatar {
-      width: 40px; height: 40px;
-      border-radius: 50%;
-      overflow: hidden;
-      flex-shrink: 0;
-      display: block;
+      width: 40px; height: 40px; border-radius: 50%; overflow: hidden;
+      flex-shrink: 0; display: block;
     }
-    .kj-comment a.kj-c-avatar img {
-      width: 100%; height: 100%;
-      object-fit: cover;
-      display: block;
-    }
+    .kj-comment a.kj-c-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .kj-comment .meta { flex: 1; min-width: 0; }
     .kj-comment a.kj-c-name {
-      font-weight: 700;
-      font-size: 13px;
-      color: var(--text);
-      text-decoration: none;
+      font-weight: 700; font-size: 13px; color: var(--text); text-decoration: none;
     }
     .kj-comment a.kj-c-name:active { color: var(--green); }
     .kj-comment .txt {
-      font-size: 14px;
-      line-height: 1.45;
-      color: #334155;
-      margin-top: 3px;
-      word-break: break-word;
-      white-space: pre-wrap;
+      font-size: 14px; line-height: 1.45; color: #334155; margin-top: 3px;
+      word-break: break-word; white-space: pre-wrap;
     }
     .kj-comment .txt.clamped {
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
     }
     .kj-comment .see-more {
-      display: none;
-      margin-top: 4px;
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--green);
-      cursor: pointer;
-      background: none;
-      border: none;
-      padding: 0;
-      font-family: inherit;
+      display: none; margin-top: 4px; font-size: 12px; font-weight: 700;
+      color: var(--green); cursor: pointer; background: none; border: none;
+      padding: 0; font-family: inherit;
     }
     .kj-comment .see-more.show { display: inline-block; }
-    .kj-comment .time {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 5px;
-    }
+    .kj-comment .time { font-size: 11px; color: var(--text-muted); margin-top: 5px; }
 
     .kj-comment-form {
-      display: flex;
-      gap: 8px;
-      padding: 12px 16px;
-      border-top: 1px solid var(--border);
-      background: var(--surface);
-      flex-shrink: 0;
+      display: flex; gap: 8px; padding: 12px 16px;
+      border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0;
     }
     .kj-comment-form input {
-      flex: 1;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 11px 16px;
-      font-size: 14px;
-      outline: none;
-      font-family: inherit;
+      flex: 1; border: 1px solid var(--border); border-radius: 999px;
+      padding: 11px 16px; font-size: 14px; outline: none; font-family: inherit;
     }
     .kj-comment-form input:focus { border-color: var(--green); }
     .kj-comment-form button {
-      width: 44px; height: 44px;
-      border: none;
-      border-radius: 50%;
-      background: var(--green);
-      color: #fff;
-      font-size: 16px;
-      cursor: pointer;
-      flex-shrink: 0;
+      width: 44px; height: 44px; border: none; border-radius: 50%;
+      background: var(--green); color: #fff; font-size: 16px; cursor: pointer; flex-shrink: 0;
     }
 
-    /* Create */
-    .kj-create-form {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      padding-bottom: 8px;
-    }
+    .kj-create-form { display: flex; flex-direction: column; gap: 14px; padding-bottom: 8px; }
     .kj-create-form textarea {
-      width: 100%;
-      min-height: 90px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px 14px;
-      font-size: 15px;
-      font-family: inherit;
-      resize: vertical;
-      outline: none;
+      width: 100%; min-height: 90px; border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px 14px; font-size: 15px; font-family: inherit; resize: vertical; outline: none;
     }
     .kj-create-form textarea:focus { border-color: var(--green); }
     .kj-file-zone {
-      border: 2px dashed #cbd5e1;
-      border-radius: 14px;
-      padding: 28px 16px;
-      text-align: center;
-      cursor: pointer;
-      background: #f8fafc;
-      transition: border-color .2s, background .2s;
+      border: 2px dashed #cbd5e1; border-radius: 14px; padding: 28px 16px;
+      text-align: center; cursor: pointer; background: #f8fafc;
     }
-    .kj-file-zone:hover, .kj-file-zone.drag {
-      border-color: var(--green);
-      background: var(--green-soft);
-    }
+    .kj-file-zone:hover, .kj-file-zone.drag { border-color: var(--green); background: var(--green-soft); }
     .kj-file-zone i { font-size: 32px; color: var(--green); margin-bottom: 8px; }
     .kj-file-zone p { font-size: 14px; color: var(--text-muted); }
     .kj-file-zone strong { color: var(--text); }
     .kj-preview {
-      display: none;
-      position: relative;
-      border-radius: 12px;
-      overflow: hidden;
-      max-height: 240px;
-      background: #0f172a;
+      display: none; position: relative; border-radius: 12px; overflow: hidden;
+      max-height: 240px; background: #0f172a;
     }
     .kj-preview.show { display: block; }
     .kj-preview video, .kj-preview img {
-      width: 100%;
-      max-height: 240px;
-      object-fit: contain;
-      display: block;
+      width: 100%; max-height: 240px; object-fit: contain; display: block;
     }
     .kj-preview .rm {
-      position: absolute;
-      top: 8px; right: 8px;
-      width: 32px; height: 32px;
-      border: none;
-      border-radius: 50%;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      cursor: pointer;
+      position: absolute; top: 8px; right: 8px; width: 32px; height: 32px;
+      border: none; border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff; cursor: pointer;
     }
     .kj-submit-post {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 12px;
+      width: 100%; padding: 14px; border: none; border-radius: 12px;
       background: linear-gradient(135deg, var(--green), var(--green-dark));
-      color: #fff;
-      font-weight: 700;
-      font-size: 15px;
-      cursor: pointer;
+      color: #fff; font-weight: 700; font-size: 15px; cursor: pointer;
       box-shadow: 0 4px 16px rgba(30,181,58,0.3);
     }
     .kj-submit-post:disabled { opacity: 0.55; cursor: not-allowed; }
 
-    .kj-report-opts {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+    .kj-report-opts { display: flex; flex-direction: column; gap: 8px; }
     .kj-report-opts label {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 14px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      cursor: pointer;
-      font-size: 14px;
+      display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+      border: 1px solid var(--border); border-radius: 12px; cursor: pointer; font-size: 14px;
     }
-    .kj-report-opts label:has(input:checked) {
-      border-color: var(--green);
-      background: var(--green-soft);
-    }
+    .kj-report-opts label:has(input:checked) { border-color: var(--green); background: var(--green-soft); }
     .kj-report-opts input { accent-color: var(--green); }
     .kj-report-custom {
-      margin-top: 10px;
-      width: 100%;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      font-size: 14px;
-      font-family: inherit;
-      resize: none;
-      min-height: 70px;
-      outline: none;
+      margin-top: 10px; width: 100%; border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px; font-size: 14px; font-family: inherit; resize: none; min-height: 70px; outline: none;
     }
     .kj-report-custom:focus { border-color: var(--green); }
 
     .kj-toast {
-      position: fixed;
-      left: 50%;
-      bottom: calc(32px + var(--safe-bottom));
-      transform: translateX(-50%) translateY(80px);
-      z-index: 200;
-      background: #0f172a;
-      color: #fff;
-      padding: 12px 20px;
-      border-radius: 999px;
-      font-size: 13px;
-      font-weight: 600;
-      box-shadow: var(--shadow);
-      opacity: 0;
-      transition: transform .3s, opacity .3s;
-      pointer-events: none;
-      max-width: 90vw;
-      text-align: center;
+      position: fixed; left: 50%; bottom: calc(32px + var(--safe-bottom));
+      transform: translateX(-50%) translateY(80px); z-index: 200;
+      background: #0f172a; color: #fff; padding: 12px 20px; border-radius: 999px;
+      font-size: 13px; font-weight: 600; opacity: 0;
+      transition: transform .3s, opacity .3s; pointer-events: none;
+      max-width: 90vw; text-align: center;
     }
-    .kj-toast.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
+    .kj-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
     .kj-heart-burst {
-      position: absolute;
-      z-index: 20;
-      pointer-events: none;
-      font-size: 80px;
-      color: #ef4444;
-      opacity: 0;
-      transform: scale(0.4);
+      position: absolute; z-index: 20; pointer-events: none;
+      font-size: 72px; color: #ef4444; opacity: 0; transform: scale(0.4);
     }
-    .kj-heart-burst.anim {
-      animation: heartBurst 0.7s ease-out forwards;
-    }
+    .kj-heart-burst.anim { animation: heartBurst 0.7s ease-out forwards; }
     @keyframes heartBurst {
       0% { opacity: 0; transform: scale(0.3); }
       25% { opacity: 1; transform: scale(1.15); }
@@ -683,52 +377,25 @@
     }
 
     .kj-more-menu {
-      position: absolute;
-      right: 56px;
-      bottom: 0;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.18);
-      min-width: 168px;
-      overflow: hidden;
-      display: none;
-      z-index: 10;
+      position: absolute; right: 52px; bottom: 0; background: #fff;
+      border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+      min-width: 168px; overflow: hidden; display: none; z-index: 10;
     }
     .kj-more-menu.open { display: block; }
     .kj-more-menu button {
-      width: 100%;
-      padding: 13px 16px;
-      border: none;
-      background: none;
-      text-align: left;
-      font-size: 14px;
-      cursor: pointer;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-family: inherit;
+      width: 100%; padding: 13px 16px; border: none; background: none;
+      text-align: left; font-size: 14px; cursor: pointer; color: var(--text);
+      display: flex; align-items: center; gap: 10px; font-family: inherit;
     }
     .kj-more-menu button:active { background: #f1f5f9; }
     .kj-more-menu button.danger { color: var(--danger); }
 
-    /* iPhone Pro Max / large phones */
     @media (min-width: 390px) {
-      .kj-actions { gap: 18px; bottom: calc(140px + var(--safe-bottom)); }
-      .kj-act .ico { width: 50px; height: 50px; font-size: 21px; }
-      .kj-info { bottom: calc(32px + var(--safe-bottom)); }
+      .kj-actions { gap: 16px; }
+      .kj-act .ico { width: 46px; height: 46px; font-size: 19px; }
     }
     @media (min-width: 430px) {
-      .kj-actions { right: max(14px, var(--safe-right)); }
-      .kj-info { left: max(18px, var(--safe-left)); right: 78px; }
-    }
-    @media (min-width: 768px) {
-      .kj-slide {
-        max-width: 430px;
-        margin: 0 auto;
-        border-left: 1px solid rgba(255,255,255,0.06);
-        border-right: 1px solid rgba(255,255,255,0.06);
-      }
+      :root { --frame-gap: 12px; --frame-radius: 24px; }
     }
   </style>
 </head>
@@ -736,9 +403,7 @@
 
   <header class="kj-header">
     <div class="left">
-      <a href="javascript:history.back()" class="kj-back" title="Rudi" aria-label="Back">
-        <i class="fa-solid fa-arrow-left"></i>
-      </a>
+      <a href="javascript:history.back()" class="kj-back" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></a>
     </div>
     <div class="kj-title">
       <span class="icon"><i class="fa-solid fa-house"></i></span>
@@ -746,15 +411,9 @@
     </div>
     <div class="right">
       {% if session.get('user_id') %}
-      <button type="button" class="kj-create-btn" id="openCreate" aria-label="Chapisha">
-        <i class="fa-solid fa-plus"></i>
-        <span>Chapisha</span>
-      </button>
+      <button type="button" class="kj-create-btn" id="openCreate"><i class="fa-solid fa-plus"></i><span>Chapisha</span></button>
       {% else %}
-      <a href="{{ url_for('login') }}" class="kj-create-btn">
-        <i class="fa-solid fa-right-to-bracket"></i>
-        <span>Ingia</span>
-      </a>
+      <a href="{{ url_for('login') }}" class="kj-create-btn"><i class="fa-solid fa-right-to-bracket"></i><span>Ingia</span></a>
       {% endif %}
     </div>
   </header>
@@ -763,109 +422,97 @@
     {% if kijiji_list and kijiji_list|length > 0 %}
       {% for post in kijiji_list %}
       <article class="kj-slide"
-               data-post-id="{{ post.id }}"
-               data-user-id="{{ post.user_id }}"
-               data-media-type="{{ post.media_type }}"
-               data-liked="{{ '1' if post.user_liked else '0' }}"
-               data-saved="{{ '1' if post.user_saved else '0' }}"
-               data-reposted="{{ '1' if post.user_reposted else '0' }}"
-               data-saved-count="{{ post.saved_count or 0 }}">
+        data-post-id="{{ post.id }}"
+        data-user-id="{{ post.user_id }}"
+        data-media-type="{{ post.media_type }}"
+        data-liked="{{ '1' if post.user_liked else '0' }}"
+        data-saved="{{ '1' if post.user_saved else '0' }}"
+        data-reposted="{{ '1' if post.user_reposted else '0' }}"
+        data-saved-count="{{ post.saved_count or 0 }}">
 
-        <div class="kj-media-wrap">
-          {% set mp = post.media_path or '' %}
-          {% if mp.startswith('http://') or mp.startswith('https://') %}
-            {% set media_src = mp %}
-          {% else %}
-            {% set media_src = url_for('static', filename='uploads/' + mp) if mp else '' %}
-          {% endif %}
+        <div class="kj-frame">
+          <div class="kj-media-wrap">
+            {% set mp = post.media_path or '' %}
+            {% if mp.startswith('http://') or mp.startswith('https://') %}
+              {% set media_src = mp %}
+            {% else %}
+              {% set media_src = url_for('static', filename='uploads/' + mp) if mp else '' %}
+            {% endif %}
+            {% if post.media_type == 'video' %}
+            <video playsinline webkit-playsinline loop preload="metadata" muted src="{{ media_src }}"></video>
+            {% else %}
+            <img src="{{ media_src }}" alt="{{ post.caption or 'Kijiji' }}" loading="lazy" class="fit-contain">
+            {% endif %}
+          </div>
+
+          <div class="kj-gradient"></div>
+          <div class="kj-play-hint" aria-hidden="true"><i class="fa-solid fa-play"></i></div>
 
           {% if post.media_type == 'video' %}
-          <video
-            playsinline
-            webkit-playsinline
-            loop
-            preload="metadata"
-            muted
-            src="{{ media_src }}"
-          ></video>
-          {% else %}
-          <img src="{{ media_src }}" alt="{{ post.caption or 'Kijiji' }}" loading="lazy">
+          <button type="button" class="kj-mute-btn" aria-label="Mute"><i class="fa-solid fa-volume-xmark"></i></button>
           {% endif %}
-        </div>
 
-        <div class="kj-gradient"></div>
-        <div class="kj-play-hint" aria-hidden="true"><i class="fa-solid fa-play"></i></div>
-
-        {% if post.media_type == 'video' %}
-        <button type="button" class="kj-mute-btn" aria-label="Mute">
-          <i class="fa-solid fa-volume-xmark"></i>
-        </button>
-        <div class="kj-progress"><div></div></div>
-        {% endif %}
-
-        <div class="kj-actions">
-          <a href="{{ url_for('profile', username=post.username) }}" class="kj-avatar-btn" title="@{{ post.username }}">
-            {% set pic = post.profile_pic or '' %}
-            {% if pic.startswith('http') %}
-              <img src="{{ pic }}" alt="@{{ post.username }}">
-            {% elif pic %}
-              <img src="{{ url_for('static', filename='uploads/' + pic) }}" alt="@{{ post.username }}">
-            {% else %}
-              <img src="https://ui-avatars.com/api/?name={{ (post.full_name or post.username)|urlencode }}&background=1EB53A&color=fff&size=96" alt="@{{ post.username }}">
-            {% endif %}
-          </a>
-
-          <button type="button" class="kj-act kj-like {{ 'liked' if post.user_liked else '' }}" data-action="like" aria-label="Like">
-            <span class="ico"><i class="fa-{{ 'solid' if post.user_liked else 'regular' }} fa-heart"></i></span>
-            <span class="cnt likes-cnt">{{ post.likes_count or 0 }}</span>
-          </button>
-
-          <button type="button" class="kj-act" data-action="comment" aria-label="Comments">
-            <span class="ico"><i class="fa-regular fa-comment"></i></span>
-            <span class="cnt comments-cnt">{{ post.comments_count or 0 }}</span>
-          </button>
-
-          <button type="button" class="kj-act kj-save {{ 'active' if post.user_saved else '' }}" data-action="save" aria-label="Save">
-            <span class="ico"><i class="fa-{{ 'solid' if post.user_saved else 'regular' }} fa-bookmark"></i></span>
-            <span class="cnt saves-cnt">{{ post.saved_count or 0 }}</span>
-          </button>
-
-          <button type="button" class="kj-act" data-action="share" aria-label="Share">
-            <span class="ico"><i class="fa-solid fa-share"></i></span>
-            <span class="cnt shares-cnt">{{ post.shares or 0 }}</span>
-          </button>
-
-          <button type="button" class="kj-act" data-action="more" aria-label="More">
-            <span class="ico"><i class="fa-solid fa-ellipsis"></i></span>
-            <span class="cnt"></span>
-          </button>
-
-          <div class="kj-more-menu">
-            <button type="button" data-menu="report"><i class="fa-regular fa-flag"></i> Ripoti</button>
-            <button type="button" data-menu="block" class="danger"><i class="fa-solid fa-ban"></i> Zuia</button>
-            {% if session.get('user_id') %}
-            <button type="button" data-menu="repost"><i class="fa-solid fa-retweet"></i> Repost</button>
-            {% endif %}
+          <div class="kj-actions">
+            <a href="{{ url_for('profile', username=post.username) }}" class="kj-avatar-btn" title="@{{ post.username }}">
+              {% set pic = post.profile_pic or '' %}
+              {% if pic.startswith('http') %}
+                <img src="{{ pic }}" alt="">
+              {% elif pic %}
+                <img src="{{ url_for('static', filename='uploads/' + pic) }}" alt="">
+              {% else %}
+                <img src="https://ui-avatars.com/api/?name={{ (post.full_name or post.username)|urlencode }}&background=1EB53A&color=fff&size=96" alt="">
+              {% endif %}
+            </a>
+            <button type="button" class="kj-act kj-like {{ 'liked' if post.user_liked else '' }}" data-action="like">
+              <span class="ico"><i class="fa-{{ 'solid' if post.user_liked else 'regular' }} fa-heart"></i></span>
+              <span class="cnt likes-cnt">{{ post.likes_count or 0 }}</span>
+            </button>
+            <button type="button" class="kj-act" data-action="comment">
+              <span class="ico"><i class="fa-regular fa-comment"></i></span>
+              <span class="cnt comments-cnt">{{ post.comments_count or 0 }}</span>
+            </button>
+            <button type="button" class="kj-act kj-save {{ 'active' if post.user_saved else '' }}" data-action="save">
+              <span class="ico"><i class="fa-{{ 'solid' if post.user_saved else 'regular' }} fa-bookmark"></i></span>
+              <span class="cnt saves-cnt">{{ post.saved_count or 0 }}</span>
+            </button>
+            <button type="button" class="kj-act" data-action="share">
+              <span class="ico"><i class="fa-solid fa-share"></i></span>
+              <span class="cnt shares-cnt">{{ post.shares or 0 }}</span>
+            </button>
+            <button type="button" class="kj-act" data-action="more">
+              <span class="ico"><i class="fa-solid fa-ellipsis"></i></span>
+              <span class="cnt"></span>
+            </button>
+            <div class="kj-more-menu">
+              <button type="button" data-menu="report"><i class="fa-regular fa-flag"></i> Ripoti</button>
+              <button type="button" data-menu="block" class="danger"><i class="fa-solid fa-ban"></i> Zuia</button>
+              {% if session.get('user_id') %}
+              <button type="button" data-menu="repost"><i class="fa-solid fa-retweet"></i> Repost</button>
+              {% endif %}
+            </div>
           </div>
-        </div>
 
-        <div class="kj-info">
-          <div class="kj-user-row">
-            <a class="kj-username" href="{{ url_for('profile', username=post.username) }}">@{{ post.username }}</a>
-            {% if post.is_verified %}
-            <i class="fa-solid fa-circle-check kj-verified" title="Verified"></i>
+          <div class="kj-info">
+            <div class="kj-user-row">
+              <a class="kj-username" href="{{ url_for('profile', username=post.username) }}">@{{ post.username }}</a>
+              {% if post.is_verified %}<i class="fa-solid fa-circle-check kj-verified"></i>{% endif %}
+            </div>
+            <div class="kj-stats-row">
+              <span class="kj-stat"><i class="fa-solid fa-heart"></i> <span class="likes-cnt">{{ post.likes_count or 0 }}</span></span>
+              <span class="kj-stat"><i class="fa-solid fa-bookmark"></i> <span class="saves-cnt">{{ post.saved_count or 0 }}</span> hifadhi</span>
+              <span class="kj-stat"><i class="fa-solid fa-comment"></i> <span class="comments-cnt">{{ post.comments_count or 0 }}</span></span>
+            </div>
+            {% if post.caption %}
+            <p class="kj-caption">{{ post.caption }}</p>
+            <span class="kj-more-cap">ona zaidi</span>
             {% endif %}
           </div>
 
-          <div class="kj-stats-row">
-            <span class="kj-stat"><i class="fa-solid fa-heart"></i> <span class="likes-cnt">{{ post.likes_count or 0 }}</span></span>
-            <span class="kj-stat"><i class="fa-solid fa-bookmark"></i> <span class="saves-cnt">{{ post.saved_count or 0 }}</span> hifadhi</span>
-            <span class="kj-stat"><i class="fa-solid fa-comment"></i> <span class="comments-cnt">{{ post.comments_count or 0 }}</span></span>
+          {% if post.media_type == 'video' %}
+          <div class="kj-timebar">
+            <div class="kj-progress"><div></div></div>
+            <span class="kj-time-label">0:00 / 0:00</span>
           </div>
-
-          {% if post.caption %}
-          <p class="kj-caption">{{ post.caption }}</p>
-          <span class="kj-more-cap">ona zaidi</span>
           {% endif %}
         </div>
       </article>
@@ -874,15 +521,11 @@
       <div class="kj-empty">
         <div class="big">🏡</div>
         <h2>Kijiji bado ni tupu</h2>
-        <p>Chapisha video au picha ili uanze kujaza Kijiji cha media.</p>
+        <p>Chapisha video au picha ili uanze kujaza Kijiji.</p>
         {% if session.get('user_id') %}
-        <button type="button" class="kj-create-btn" id="openCreateEmpty">
-          <i class="fa-solid fa-plus"></i> Chapisha sasa
-        </button>
+        <button type="button" class="kj-create-btn" id="openCreateEmpty"><i class="fa-solid fa-plus"></i> Chapisha sasa</button>
         {% else %}
-        <a href="{{ url_for('login') }}" class="kj-create-btn">
-          <i class="fa-solid fa-right-to-bracket"></i> Ingia ili uchapishe
-        </a>
+        <a href="{{ url_for('login') }}" class="kj-create-btn"><i class="fa-solid fa-right-to-bracket"></i> Ingia</a>
         {% endif %}
       </div>
     {% endif %}
@@ -890,20 +533,17 @@
 
   <div class="kj-overlay" id="kjOverlay"></div>
 
-  <!-- Comments -->
-  <div class="kj-sheet" id="commentsSheet" role="dialog" aria-label="Comments">
+  <div class="kj-sheet" id="commentsSheet">
     <div class="kj-sheet-handle"></div>
     <div class="kj-sheet-head">
       <h3>Maoni</h3>
       <button type="button" class="kj-sheet-close" data-close="comments"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div class="kj-sheet-body" id="commentsList">
-      <p style="text-align:center;color:#94a3b8;padding:24px;">Inapakia...</p>
-    </div>
+    <div class="kj-sheet-body" id="commentsList"><p style="text-align:center;color:#94a3b8;padding:24px;">Inapakia...</p></div>
     {% if session.get('user_id') %}
     <form class="kj-comment-form" id="commentForm">
       <input type="text" id="commentInput" placeholder="Andika maoni..." maxlength="500" autocomplete="off">
-      <button type="submit" aria-label="Tuma"><i class="fa-solid fa-paper-plane"></i></button>
+      <button type="submit"><i class="fa-solid fa-paper-plane"></i></button>
     </form>
     {% else %}
     <div class="kj-comment-form" style="justify-content:center;">
@@ -912,8 +552,7 @@
     {% endif %}
   </div>
 
-  <!-- Create -->
-  <div class="kj-sheet" id="createSheet" role="dialog" aria-label="Chapisha">
+  <div class="kj-sheet" id="createSheet">
     <div class="kj-sheet-handle"></div>
     <div class="kj-sheet-head">
       <h3>Chapisha Kijiji</h3>
@@ -921,7 +560,7 @@
     </div>
     <div class="kj-sheet-body">
       <form class="kj-create-form" id="createForm" enctype="multipart/form-data" method="POST" action="{{ url_for('create_post') }}">
-        <textarea name="content" id="createCaption" placeholder="Andika caption (si lazima)..." maxlength="2000"></textarea>
+        <textarea name="content" placeholder="Andika caption (si lazima)..." maxlength="2000"></textarea>
         <div class="kj-file-zone" id="fileZone">
           <i class="fa-solid fa-cloud-arrow-up"></i>
           <p><strong>Bofya</strong> au buruta video / picha</p>
@@ -929,21 +568,18 @@
           <input type="file" name="file" id="createFile" accept="image/*,video/*" hidden>
         </div>
         <div class="kj-preview" id="createPreview">
-          <button type="button" class="rm" id="clearFile" aria-label="Ondoa"><i class="fa-solid fa-xmark"></i></button>
+          <button type="button" class="rm" id="clearFile"><i class="fa-solid fa-xmark"></i></button>
           <div id="previewInner"></div>
         </div>
         <button type="submit" class="kj-submit-post" id="submitPost" disabled>
           <i class="fa-solid fa-paper-plane"></i> Chapisha kwenye Kijiji
         </button>
-        <p style="font-size:11px;color:#94a3b8;text-align:center;">
-          Faili inahifadhiwa kwenye cloud (R2) kupitia mfumo wa kawaida wa post.
-        </p>
+        <p style="font-size:11px;color:#94a3b8;text-align:center;">Faili inahifadhiwa kwenye cloud (R2).</p>
       </form>
     </div>
   </div>
 
-  <!-- Report -->
-  <div class="kj-sheet" id="reportSheet" role="dialog" aria-label="Ripoti">
+  <div class="kj-sheet" id="reportSheet">
     <div class="kj-sheet-handle"></div>
     <div class="kj-sheet-head">
       <h3>Ripoti post</h3>
@@ -970,181 +606,156 @@
     const feed = document.getElementById('kijijiFeed');
     const overlay = document.getElementById('kjOverlay');
     const toastEl = document.getElementById('kjToast');
-
-    let currentCommentPostId = null;
-    let currentReportPostId = null;
-    let globalMuted = true;
+    let currentCommentPostId = null, currentReportPostId = null, globalMuted = true;
 
     function toast(msg, ms) {
-      toastEl.textContent = msg;
-      toastEl.classList.add('show');
+      toastEl.textContent = msg; toastEl.classList.add('show');
       clearTimeout(toastEl._t);
       toastEl._t = setTimeout(function () { toastEl.classList.remove('show'); }, ms || 2600);
     }
-
     function requireLogin() {
       if (!IS_LOGGED_IN) {
         toast('Ingia kwanza ili uendelee');
-        setTimeout(function () { window.location.href = "{{ url_for('login') }}"; }, 900);
+        setTimeout(function () { location.href = "{{ url_for('login') }}"; }, 900);
         return false;
       }
       return true;
     }
-
-    function openSheet(id) {
-      overlay.classList.add('open');
-      document.getElementById(id).classList.add('open');
-    }
+    function openSheet(id) { overlay.classList.add('open'); document.getElementById(id).classList.add('open'); }
     function closeSheets() {
       overlay.classList.remove('open');
       document.querySelectorAll('.kj-sheet.open').forEach(function (s) { s.classList.remove('open'); });
       document.querySelectorAll('.kj-more-menu.open').forEach(function (m) { m.classList.remove('open'); });
     }
     overlay.addEventListener('click', closeSheets);
-    document.querySelectorAll('[data-close]').forEach(function (btn) {
-      btn.addEventListener('click', closeSheets);
-    });
+    document.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', closeSheets); });
 
-    /* Create post → /create_post → cloud */
-    const createForm = document.getElementById('createForm');
-    const createFile = document.getElementById('createFile');
-    const fileZone = document.getElementById('fileZone');
-    const createPreview = document.getElementById('createPreview');
-    const previewInner = document.getElementById('previewInner');
-    const submitPost = document.getElementById('submitPost');
-    const clearFileBtn = document.getElementById('clearFile');
-
-    function openCreate() {
-      if (!requireLogin()) return;
-      openSheet('createSheet');
+    function formatTime(sec) {
+      if (!isFinite(sec) || sec < 0) return '0:00';
+      sec = Math.floor(sec);
+      var m = Math.floor(sec / 60), s = sec % 60;
+      return m + ':' + (s < 10 ? '0' : '') + s;
     }
-    const openCreateBtn = document.getElementById('openCreate');
-    const openCreateEmpty = document.getElementById('openCreateEmpty');
-    if (openCreateBtn) openCreateBtn.addEventListener('click', openCreate);
-    if (openCreateEmpty) openCreateEmpty.addEventListener('click', openCreate);
 
+    /* HYBRID fit */
+    function applyHybridFit(el) {
+      if (!el) return;
+      function setFit() {
+        var w = el.tagName === 'VIDEO' ? el.videoWidth : el.naturalWidth;
+        var h = el.tagName === 'VIDEO' ? el.videoHeight : el.naturalHeight;
+        if (!w || !h) return;
+        var ratio = w / h;
+        el.classList.remove('fit-cover', 'fit-contain');
+        if (ratio < 0.85) el.classList.add('fit-cover');
+        else el.classList.add('fit-contain');
+      }
+      if (el.tagName === 'VIDEO') {
+        if (el.readyState >= 1) setFit();
+        else el.addEventListener('loadedmetadata', setFit, { once: true });
+      } else {
+        if (el.complete && el.naturalWidth) setFit();
+        else el.addEventListener('load', setFit, { once: true });
+      }
+    }
+    document.querySelectorAll('.kj-media-wrap video, .kj-media-wrap img').forEach(applyHybridFit);
+
+    /* Create */
+    var createForm = document.getElementById('createForm');
+    var createFile = document.getElementById('createFile');
+    var fileZone = document.getElementById('fileZone');
+    var createPreview = document.getElementById('createPreview');
+    var previewInner = document.getElementById('previewInner');
+    var submitPost = document.getElementById('submitPost');
+    function openCreate() { if (!requireLogin()) return; openSheet('createSheet'); }
+    var ocb = document.getElementById('openCreate');
+    var oce = document.getElementById('openCreateEmpty');
+    if (ocb) ocb.addEventListener('click', openCreate);
+    if (oce) oce.addEventListener('click', openCreate);
     if (fileZone && createFile) {
       fileZone.addEventListener('click', function () { createFile.click(); });
-      fileZone.addEventListener('dragover', function (e) { e.preventDefault(); fileZone.classList.add('drag'); });
-      fileZone.addEventListener('dragleave', function () { fileZone.classList.remove('drag'); });
-      fileZone.addEventListener('drop', function (e) {
-        e.preventDefault();
-        fileZone.classList.remove('drag');
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-          createFile.files = e.dataTransfer.files;
-          showPreview(e.dataTransfer.files[0]);
-        }
-      });
       createFile.addEventListener('change', function () {
         if (createFile.files && createFile.files[0]) showPreview(createFile.files[0]);
       });
     }
-
     function showPreview(file) {
       previewInner.innerHTML = '';
-      const url = URL.createObjectURL(file);
+      var url = URL.createObjectURL(file);
       if (file.type.startsWith('video/')) {
-        const v = document.createElement('video');
-        v.src = url; v.controls = true; v.muted = true;
+        var v = document.createElement('video'); v.src = url; v.controls = true; v.muted = true;
         previewInner.appendChild(v);
       } else {
-        const img = document.createElement('img');
-        img.src = url;
-        previewInner.appendChild(img);
+        var img = document.createElement('img'); img.src = url; previewInner.appendChild(img);
       }
-      createPreview.classList.add('show');
-      fileZone.style.display = 'none';
-      submitPost.disabled = false;
+      createPreview.classList.add('show'); fileZone.style.display = 'none'; submitPost.disabled = false;
     }
-
-    if (clearFileBtn) {
-      clearFileBtn.addEventListener('click', function () {
-        createFile.value = '';
-        previewInner.innerHTML = '';
-        createPreview.classList.remove('show');
-        fileZone.style.display = '';
-        submitPost.disabled = true;
-      });
-    }
-
+    var clearFileBtn = document.getElementById('clearFile');
+    if (clearFileBtn) clearFileBtn.addEventListener('click', function () {
+      createFile.value = ''; previewInner.innerHTML = '';
+      createPreview.classList.remove('show'); fileZone.style.display = ''; submitPost.disabled = true;
+    });
     if (createForm) {
       createForm.addEventListener('submit', function (e) {
         e.preventDefault();
         if (!requireLogin()) return;
-        if (!createFile.files || !createFile.files[0]) {
-          toast('Chagua video au picha');
-          return;
-        }
+        if (!createFile.files || !createFile.files[0]) { toast('Chagua video au picha'); return; }
         submitPost.disabled = true;
         submitPost.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Inapakia...';
-        const fd = new FormData(createForm);
         fetch(createForm.action, {
-          method: 'POST',
-          body: fd,
-          credentials: 'same-origin',
+          method: 'POST', body: new FormData(createForm), credentials: 'same-origin',
           headers: { 'X-Requested-With': 'XMLHttpRequest' }
         }).then(function (res) {
           if (res.redirected || res.ok) {
             toast('Post imechapishwa!');
-            setTimeout(function () { window.location.reload(); }, 900);
-            return;
+            setTimeout(function () { location.reload(); }, 900);
+          } else {
+            toast('Imeshindikana.'); submitPost.disabled = false;
+            submitPost.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Chapisha kwenye Kijiji';
           }
-          toast('Imeshindikana. Jaribu tena.');
-          submitPost.disabled = false;
-          submitPost.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Chapisha kwenye Kijiji';
         }).catch(function () {
-          toast('Hitilafu ya mtandao');
-          submitPost.disabled = false;
+          toast('Hitilafu ya mtandao'); submitPost.disabled = false;
           submitPost.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Chapisha kwenye Kijiji';
         });
       });
     }
 
-    /* Video autoplay */
-    const slides = Array.from(document.querySelectorAll('.kj-slide'));
-
     function setMuteIcon(btn, muted) {
       if (!btn) return;
-      btn.innerHTML = muted
-        ? '<i class="fa-solid fa-volume-xmark"></i>'
-        : '<i class="fa-solid fa-volume-high"></i>';
+      btn.innerHTML = muted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>';
+    }
+    function pauseAllExcept(ex) {
+      document.querySelectorAll('.kj-slide video').forEach(function (v) { if (v !== ex) v.pause(); });
+    }
+    function updateTimeUI(video, slide) {
+      var bar = slide.querySelector('.kj-progress > div');
+      var label = slide.querySelector('.kj-time-label');
+      if (bar && video.duration) bar.style.width = ((video.currentTime / video.duration) * 100) + '%';
+      if (label) label.textContent = formatTime(video.currentTime) + ' / ' + formatTime(video.duration || 0);
     }
 
-    function pauseAllExcept(exceptVideo) {
-      document.querySelectorAll('.kj-slide video').forEach(function (v) {
-        if (v !== exceptVideo) v.pause();
-      });
-    }
-
-    const io = new IntersectionObserver(function (entries) {
+    var slides = Array.from(document.querySelectorAll('.kj-slide'));
+    var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
-        const slide = entry.target;
-        const video = slide.querySelector('video');
+        var slide = entry.target, video = slide.querySelector('video');
         if (!video) return;
-        if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.55) {
           pauseAllExcept(video);
           video.muted = globalMuted;
           setMuteIcon(slide.querySelector('.kj-mute-btn'), globalMuted);
           video.play().catch(function () {});
           recordView(slide.dataset.postId, video);
-        } else {
-          video.pause();
-        }
+        } else video.pause();
       });
-    }, { threshold: [0.6] });
-
+    }, { threshold: [0.55] });
     slides.forEach(function (s) { io.observe(s); });
 
     document.querySelectorAll('.kj-slide video').forEach(function (video) {
-      const bar = video.closest('.kj-slide').querySelector('.kj-progress > div');
-      if (!bar) return;
-      video.addEventListener('timeupdate', function () {
-        if (video.duration) bar.style.width = ((video.currentTime / video.duration) * 100) + '%';
-      });
+      var slide = video.closest('.kj-slide');
+      video.addEventListener('timeupdate', function () { updateTimeUI(video, slide); });
+      video.addEventListener('loadedmetadata', function () { updateTimeUI(video, slide); });
     });
 
     feed.addEventListener('click', function (e) {
-      const muteBtn = e.target.closest('.kj-mute-btn');
+      var muteBtn = e.target.closest('.kj-mute-btn');
       if (muteBtn) {
         e.stopPropagation();
         globalMuted = !globalMuted;
@@ -1153,334 +764,259 @@
       }
     });
 
-    let lastTap = 0;
+    var lastTap = 0;
     feed.addEventListener('click', function (e) {
       if (e.target.closest('.kj-act') || e.target.closest('.kj-mute-btn') ||
           e.target.closest('.kj-avatar-btn') || e.target.closest('.kj-more-menu') ||
-          e.target.closest('.kj-more-cap') || e.target.closest('a')) return;
-
-      const slide = e.target.closest('.kj-slide');
+          e.target.closest('.kj-more-cap') || e.target.closest('a') || e.target.closest('.kj-timebar')) return;
+      var slide = e.target.closest('.kj-slide');
       if (!slide) return;
-      const video = slide.querySelector('video');
-      const now = Date.now();
+      var frame = slide.querySelector('.kj-frame');
+      var video = slide.querySelector('video');
+      var now = Date.now();
       if (now - lastTap < 320) {
         lastTap = 0;
-        burstHeart(slide, e);
+        burstHeart(frame || slide, e);
         doLike(slide, true);
         return;
       }
       lastTap = now;
       if (video) {
         if (video.paused) {
-          pauseAllExcept(video);
-          video.play().catch(function () {});
+          pauseAllExcept(video); video.play().catch(function () {});
           slide.querySelector('.kj-play-hint').classList.remove('show');
         } else {
           video.pause();
-          const hint = slide.querySelector('.kj-play-hint');
+          var hint = slide.querySelector('.kj-play-hint');
           hint.classList.add('show');
           setTimeout(function () { hint.classList.remove('show'); }, 700);
         }
       }
     });
 
-    function burstHeart(slide, e) {
-      const heart = document.createElement('div');
-      heart.className = 'kj-heart-burst';
-      heart.innerHTML = '❤️';
-      const rect = slide.getBoundingClientRect();
-      heart.style.left = (e.clientX - rect.left - 40) + 'px';
-      heart.style.top = (e.clientY - rect.top - 40) + 'px';
-      slide.appendChild(heart);
+    function burstHeart(container, e) {
+      var heart = document.createElement('div');
+      heart.className = 'kj-heart-burst'; heart.innerHTML = '❤️';
+      var rect = container.getBoundingClientRect();
+      heart.style.left = (e.clientX - rect.left - 36) + 'px';
+      heart.style.top = (e.clientY - rect.top - 36) + 'px';
+      container.appendChild(heart);
       requestAnimationFrame(function () { heart.classList.add('anim'); });
       setTimeout(function () { heart.remove(); }, 750);
     }
 
-    /* Actions */
     feed.addEventListener('click', function (e) {
-      const act = e.target.closest('.kj-act');
+      var act = e.target.closest('.kj-act');
       if (!act) return;
       e.stopPropagation();
-      const slide = act.closest('.kj-slide');
-      const action = act.dataset.action;
+      var slide = act.closest('.kj-slide');
+      var action = act.dataset.action;
       if (action === 'like') doLike(slide, false);
       else if (action === 'comment') openComments(slide.dataset.postId);
       else if (action === 'save') doSave(slide);
       else if (action === 'share') doShare(slide);
       else if (action === 'more') {
-        const menu = slide.querySelector('.kj-more-menu');
-        document.querySelectorAll('.kj-more-menu.open').forEach(function (m) {
-          if (m !== menu) m.classList.remove('open');
-        });
+        var menu = slide.querySelector('.kj-more-menu');
+        document.querySelectorAll('.kj-more-menu.open').forEach(function (m) { if (m !== menu) m.classList.remove('open'); });
         menu.classList.toggle('open');
       }
     });
 
     feed.addEventListener('click', function (e) {
-      const menuBtn = e.target.closest('[data-menu]');
+      var menuBtn = e.target.closest('[data-menu]');
       if (!menuBtn) return;
       e.stopPropagation();
-      const slide = menuBtn.closest('.kj-slide');
+      var slide = menuBtn.closest('.kj-slide');
       slide.querySelector('.kj-more-menu').classList.remove('open');
-      const what = menuBtn.dataset.menu;
-      if (what === 'report') {
-        if (!requireLogin()) return;
-        currentReportPostId = slide.dataset.postId;
-        openSheet('reportSheet');
-      } else if (what === 'block') {
-        if (!requireLogin()) return;
-        doBlock(slide.dataset.userId);
-      } else if (what === 'repost') {
-        if (!requireLogin()) return;
-        doRepost(slide);
-      }
+      var what = menuBtn.dataset.menu;
+      if (what === 'report') { if (!requireLogin()) return; currentReportPostId = slide.dataset.postId; openSheet('reportSheet'); }
+      else if (what === 'block') { if (!requireLogin()) return; doBlock(slide.dataset.userId); }
+      else if (what === 'repost') { if (!requireLogin()) return; doRepost(slide); }
     });
 
     function updateCounts(slide, sel, n) {
-      slide.querySelectorAll(sel).forEach(function (el) {
-        el.textContent = n;
-      });
+      slide.querySelectorAll(sel).forEach(function (el) { el.textContent = n; });
     }
 
     function doLike(slide, forceLike) {
       if (!requireLogin()) return;
-      const postId = slide.dataset.postId;
-      const btn = slide.querySelector('.kj-like');
       if (forceLike && slide.dataset.liked === '1') return;
-
+      var postId = slide.dataset.postId, btn = slide.querySelector('.kj-like');
       fetch('/kijiji/like/' + postId, {
-        method: 'POST',
-        credentials: 'same-origin',
+        method: 'POST', credentials: 'same-origin',
         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' }
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          if (!data) return;
-          const liked = data.status === 'liked';
-          slide.dataset.liked = liked ? '1' : '0';
-          btn.classList.toggle('liked', liked);
-          btn.querySelector('.ico i').className = liked ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
-          if (typeof data.likes_count !== 'undefined') {
-            updateCounts(slide, '.likes-cnt', data.likes_count);
-          }
-        })
-        .catch(function () { toast('Hitilafu'); });
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (!data) return;
+        var liked = data.status === 'liked';
+        slide.dataset.liked = liked ? '1' : '0';
+        btn.classList.toggle('liked', liked);
+        btn.querySelector('.ico i').className = liked ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
+        if (typeof data.likes_count !== 'undefined') updateCounts(slide, '.likes-cnt', data.likes_count);
+      }).catch(function () { toast('Hitilafu'); });
     }
 
     function doSave(slide) {
       if (!requireLogin()) return;
-      const postId = slide.dataset.postId;
-      const btn = slide.querySelector('.kj-save');
-      const wasSaved = slide.dataset.saved === '1';
+      var postId = slide.dataset.postId, btn = slide.querySelector('.kj-save');
+      var wasSaved = slide.dataset.saved === '1';
       fetch('/kijiji/save/' + postId, {
-        method: 'POST',
-        credentials: 'same-origin',
+        method: 'POST', credentials: 'same-origin',
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          const saved = data.status === 'saved';
-          slide.dataset.saved = saved ? '1' : '0';
-          btn.classList.toggle('active', saved);
-          btn.querySelector('.ico i').className = saved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
-          let n = parseInt(slide.dataset.savedCount || '0', 10) || 0;
-          if (saved && !wasSaved) n += 1;
-          if (!saved && wasSaved) n = Math.max(0, n - 1);
-          slide.dataset.savedCount = String(n);
-          updateCounts(slide, '.saves-cnt', n);
-          toast(saved ? 'Imehifadhiwa' : 'Imeondolewa kwenye saved');
-        })
-        .catch(function () { toast('Hitilafu'); });
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        var saved = data.status === 'saved';
+        slide.dataset.saved = saved ? '1' : '0';
+        btn.classList.toggle('active', saved);
+        btn.querySelector('.ico i').className = saved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+        var n = parseInt(slide.dataset.savedCount || '0', 10) || 0;
+        if (saved && !wasSaved) n += 1;
+        if (!saved && wasSaved) n = Math.max(0, n - 1);
+        slide.dataset.savedCount = String(n);
+        updateCounts(slide, '.saves-cnt', n);
+        toast(saved ? 'Imehifadhiwa' : 'Imeondolewa kwenye saved');
+      }).catch(function () { toast('Hitilafu'); });
     }
 
     function doShare(slide) {
       if (!requireLogin()) return;
-      const postId = slide.dataset.postId;
-      const url = window.location.origin + '/post/' + postId;
+      var postId = slide.dataset.postId;
+      var url = location.origin + '/post/' + postId;
       fetch('/kijiji/share/' + postId, {
-        method: 'POST',
-        credentials: 'same-origin',
+        method: 'POST', credentials: 'same-origin',
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          if (data.shares != null) updateCounts(slide, '.shares-cnt', data.shares);
-        })
-        .catch(function () {});
-
-      if (navigator.share) {
-        navigator.share({ title: 'Kijiji', url: url }).catch(function () {});
-      } else if (navigator.clipboard) {
-        navigator.clipboard.writeText(url).then(function () { toast('Link imenakiliwa'); });
-      } else {
-        toast(url);
-      }
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data.shares != null) updateCounts(slide, '.shares-cnt', data.shares);
+      }).catch(function () {});
+      if (navigator.share) navigator.share({ title: 'Kijiji', url: url }).catch(function () {});
+      else if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast('Link imenakiliwa'); });
+      else toast(url);
     }
 
     function doRepost(slide) {
       fetch('/kijiji/repost/' + slide.dataset.postId, {
-        method: 'POST',
-        credentials: 'same-origin',
+        method: 'POST', credentials: 'same-origin',
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          toast(data.status === 'reposted' ? 'Umerepost' : 'Repost imeondolewa');
-        })
-        .catch(function () { toast('Hitilafu'); });
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        toast(data.status === 'reposted' ? 'Umerepost' : 'Repost imeondolewa');
+      }).catch(function () { toast('Hitilafu'); });
     }
 
     function doBlock(userId) {
       if (!confirm('Unataka kumzuia mtumiaji huyu?')) return;
       fetch('/kijiji/block/' + userId, {
-        method: 'POST',
-        credentials: 'same-origin',
+        method: 'POST', credentials: 'same-origin',
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          toast(data.status === 'blocked' ? 'Amezuiliwa' : 'Block imeondolewa');
-          if (data.status === 'blocked') {
-            document.querySelectorAll('.kj-slide[data-user-id="' + userId + '"]').forEach(function (s) {
-              s.style.display = 'none';
-            });
-          }
-        })
-        .catch(function () { toast('Hitilafu'); });
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        toast(data.status === 'blocked' ? 'Amezuiliwa' : 'Block imeondolewa');
+        if (data.status === 'blocked') {
+          document.querySelectorAll('.kj-slide[data-user-id="' + userId + '"]').forEach(function (s) { s.style.display = 'none'; });
+        }
+      }).catch(function () { toast('Hitilafu'); });
     }
 
-    const viewed = new Set();
+    var viewed = new Set();
     function recordView(postId, video) {
       if (!IS_LOGGED_IN || !postId || viewed.has(postId)) return;
       viewed.add(postId);
-      let watch = 0;
+      var watch = 0;
       try { watch = video && video.currentTime ? video.currentTime : 0; } catch (e) {}
       fetch('/kijiji/view/' + postId, {
-        method: 'POST',
-        credentials: 'same-origin',
+        method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify({ watch_seconds: watch })
       }).catch(function () {});
     }
 
-    /* Comments — see more + clickable profile */
     function openComments(postId) {
       if (!requireLogin()) return;
       currentCommentPostId = postId;
       openSheet('commentsSheet');
-      const list = document.getElementById('commentsList');
+      var list = document.getElementById('commentsList');
       list.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:24px;">Inapakia...</p>';
       fetch('/kijiji/comments/' + postId, {
-        credentials: 'same-origin',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (comments) {
-          if (!comments || !comments.length) {
-            list.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:28px;">Hakuna maoni bado. Kuwa wa kwanza!</p>';
-            return;
-          }
-          list.innerHTML = '';
-          comments.forEach(function (c) {
-            var pic = c.profile_pic || '';
-            var src = (pic.indexOf('http') === 0)
-              ? pic
-              : (pic ? '/static/uploads/' + pic : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(c.username || 'U') + '&background=1EB53A&color=fff&size=80');
-            var profileUrl = '/profile/' + encodeURIComponent(c.username || '');
-
-            var row = document.createElement('div');
-            row.className = 'kj-comment';
-            row.innerHTML =
-              '<a class="kj-c-avatar" href="' + profileUrl + '"><img src="' + src + '" alt=""></a>' +
-              '<div class="meta">' +
-                '<a class="kj-c-name" href="' + profileUrl + '">@' + (c.username || '') + '</a>' +
-                '<div class="txt clamped"></div>' +
-                '<button type="button" class="see-more">ona zaidi</button>' +
-                '<div class="time"></div>' +
-              '</div>';
-            row.querySelector('.txt').textContent = c.content || '';
-            row.querySelector('.time').textContent = c.created_at || '';
-
-            list.appendChild(row);
-
-            // See more kama text ni ndefu
-            var txtEl = row.querySelector('.txt');
-            var moreBtn = row.querySelector('.see-more');
-            requestAnimationFrame(function () {
-              if (txtEl.scrollHeight > txtEl.clientHeight + 2) {
-                moreBtn.classList.add('show');
-                moreBtn.addEventListener('click', function () {
-                  var open = txtEl.classList.toggle('clamped') === false;
-                  // toggle: if removed clamped → expanded
-                  if (!txtEl.classList.contains('clamped')) {
-                    moreBtn.textContent = 'fanya ndogo';
-                  } else {
-                    moreBtn.textContent = 'ona zaidi';
-                  }
-                });
-              }
-            });
+        credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      }).then(function (r) { return r.json(); }).then(function (comments) {
+        if (!comments || !comments.length) {
+          list.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:28px;">Hakuna maoni bado.</p>';
+          return;
+        }
+        list.innerHTML = '';
+        comments.forEach(function (c) {
+          var pic = c.profile_pic || '';
+          var src = pic.indexOf('http') === 0 ? pic : (pic ? '/static/uploads/' + pic : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(c.username || 'U') + '&background=1EB53A&color=fff&size=80');
+          var profileUrl = '/profile/' + encodeURIComponent(c.username || '');
+          var row = document.createElement('div');
+          row.className = 'kj-comment';
+          row.innerHTML =
+            '<a class="kj-c-avatar" href="' + profileUrl + '"><img src="' + src + '" alt=""></a>' +
+            '<div class="meta">' +
+              '<a class="kj-c-name" href="' + profileUrl + '">@' + (c.username || '') + '</a>' +
+              '<div class="txt clamped"></div>' +
+              '<button type="button" class="see-more">ona zaidi</button>' +
+              '<div class="time"></div></div>';
+          row.querySelector('.txt').textContent = c.content || '';
+          row.querySelector('.time').textContent = c.created_at || '';
+          list.appendChild(row);
+          var txtEl = row.querySelector('.txt'), moreBtn = row.querySelector('.see-more');
+          requestAnimationFrame(function () {
+            if (txtEl.scrollHeight > txtEl.clientHeight + 2) {
+              moreBtn.classList.add('show');
+              moreBtn.addEventListener('click', function () {
+                txtEl.classList.toggle('clamped');
+                moreBtn.textContent = txtEl.classList.contains('clamped') ? 'ona zaidi' : 'fanya ndogo';
+              });
+            }
           });
-        })
-        .catch(function () {
-          list.innerHTML = '<p style="text-align:center;color:#ef4444;padding:24px;">Imeshindikana kupakia</p>';
         });
+      }).catch(function () {
+        list.innerHTML = '<p style="text-align:center;color:#ef4444;padding:24px;">Imeshindikana</p>';
+      });
     }
 
-    const commentForm = document.getElementById('commentForm');
+    var commentForm = document.getElementById('commentForm');
     if (commentForm) {
       commentForm.addEventListener('submit', function (e) {
         e.preventDefault();
         if (!requireLogin() || !currentCommentPostId) return;
-        const input = document.getElementById('commentInput');
-        const content = (input.value || '').trim();
+        var input = document.getElementById('commentInput');
+        var content = (input.value || '').trim();
         if (!content) return;
         fetch('/kijiji/comment/' + currentCommentPostId, {
-          method: 'POST',
-          credentials: 'same-origin',
+          method: 'POST', credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
           body: JSON.stringify({ content: content })
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (c) {
-            if (c.error) { toast(c.error); return; }
-            input.value = '';
-            openComments(currentCommentPostId);
-            const slide = document.querySelector('.kj-slide[data-post-id="' + currentCommentPostId + '"]');
-            if (slide) {
-              const n = (parseInt((slide.querySelector('.comments-cnt') || {}).textContent, 10) || 0) + 1;
-              updateCounts(slide, '.comments-cnt', n);
-            }
-          })
-          .catch(function () { toast('Hitilafu'); });
+        }).then(function (r) { return r.json(); }).then(function (c) {
+          if (c.error) { toast(c.error); return; }
+          input.value = '';
+          openComments(currentCommentPostId);
+          var slide = document.querySelector('.kj-slide[data-post-id="' + currentCommentPostId + '"]');
+          if (slide) {
+            var n = (parseInt((slide.querySelector('.comments-cnt') || {}).textContent, 10) || 0) + 1;
+            updateCounts(slide, '.comments-cnt', n);
+          }
+        }).catch(function () { toast('Hitilafu'); });
       });
     }
 
     document.getElementById('submitReport').addEventListener('click', function () {
       if (!requireLogin() || !currentReportPostId) return;
-      const checked = document.querySelector('input[name="report_reason"]:checked');
-      let reason = checked ? checked.value : '';
-      const custom = (document.getElementById('reportCustom').value || '').trim();
+      var checked = document.querySelector('input[name="report_reason"]:checked');
+      var reason = checked ? checked.value : '';
+      var custom = (document.getElementById('reportCustom').value || '').trim();
       if (custom) reason = reason ? (reason + ' — ' + custom) : custom;
       if (!reason) { toast('Chagua sababu'); return; }
       fetch('/kijiji/report/' + currentReportPostId, {
-        method: 'POST',
-        credentials: 'same-origin',
+        method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify({ reason: reason })
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          if (data.error) toast(data.error);
-          else { toast('Ripoti imetumwa. Asante!'); closeSheets(); }
-        })
-        .catch(function () { toast('Hitilafu'); });
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data.error) toast(data.error);
+        else { toast('Ripoti imetumwa. Asante!'); closeSheets(); }
+      }).catch(function () { toast('Hitilafu'); });
     });
 
-    /* Caption see more */
     document.querySelectorAll('.kj-caption').forEach(function (cap) {
       if (cap.scrollHeight > cap.clientHeight + 4) {
-        const more = cap.parentElement.querySelector('.kj-more-cap');
+        var more = cap.parentElement.querySelector('.kj-more-cap');
         if (more) {
           more.style.display = 'inline';
           more.addEventListener('click', function (e) {
@@ -1493,11 +1029,8 @@
     });
 
     feed.addEventListener('scroll', function () {
-      document.querySelectorAll('.kj-more-menu.open').forEach(function (m) {
-        m.classList.remove('open');
-      });
+      document.querySelectorAll('.kj-more-menu.open').forEach(function (m) { m.classList.remove('open'); });
     }, { passive: true });
-
   })();
   </script>
 </body>
