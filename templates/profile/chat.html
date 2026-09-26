@@ -3352,7 +3352,7 @@ let pendingOffer = null;
 let endingLock = false;
 const endedCallIds = new Set();
 const CALL_RING_TIMEOUT_MS = 45000;
-const CALL_POLL_MS = 800;
+const CALL_POLL_MS = 500;
 
 /** STUN + free TURN (Open Relay) — muhimu kwa 4G/NAT */
 const iceServers = {
@@ -3410,6 +3410,10 @@ function startCallSignalPoll() {
   if (callSignalPoll) return;
   callSignalPoll = setInterval(pollCallSignals, CALL_POLL_MS);
   pollCallSignals();
+  // Poll tena haraka wakati ukurasa unapoonekana (tab back)
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) pollCallSignals();
+  });
 }
 
 function pollCallSignals() {
@@ -3535,6 +3539,10 @@ function showIncomingCall(isVideo, peerInfo) {
   pauseBgMusic();
   playRingtone();
   stopCallTimer();
+  try {
+    document.title = "📞 Call inakuja...";
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+  } catch (e) {}
   setCallPeerUI(peerInfo || {
     full_name: receiverFullName,
     username: receiverName,
