@@ -69,7 +69,7 @@ MAX_LINKUPS_PER_USER = 3
 IMAGE_EXTS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 VIDEO_EXTS = {'mp4', 'webm', 'ogg', 'mov', 'avi'}
 MAX_IMAGE_BYTES = 24 * 1024 * 1024
-MAX_VIDEO_BYTES = 24 * 1024 * 1024
+MAX_VIDEO_BYTES = 100 * 1024 * 1024
 ALLOWED_EXTENSIONS = {
     'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif',
     'mp4', 'webm', 'ogg', 'mov', 'avi', '3gp', 'mkv',
