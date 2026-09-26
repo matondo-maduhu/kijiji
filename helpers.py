@@ -330,7 +330,7 @@ def generate_profile_qr_card(profile_user, box_size=8):
     qx = (width - qr_size) // 2
     qy = header_h + 8
     card.paste(qr_img, (qx, qy), qr_img if qr_img.mode == 'RGBA' else None)
-    center_text('Kijiji Tanzania · Scan to open profile', font_small, height - 28, '#94a3b8')
+    center_text('DUTOZA · Scan to open profile', font_small, height - 28, '#94a3b8')
     return card.convert('RGB')
 
 
@@ -1084,7 +1084,7 @@ def notify_user(user_id, sender_id, ntype, message="", post_id=None, url="/notif
             icon = None
 
     try:
-        send_web_push(user_id, "Kijiji Tanzania", body, url, icon=icon)
+        send_web_push(user_id, "DUTOZA", body, url, icon=icon)
     except Exception as e:
         print("[PUSH] notify_user error:", e)
 
