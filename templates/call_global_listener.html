@@ -1,0 +1,46 @@
+<!-- Kijiji global incoming-call listener: weka kabla ya </body> kwenye base.html -->
+<script>
+(function () {
+  // Usiduplicate kwenye ukurasa wa chat (chat.html ina poll yake)
+  if (window.__kijijiCallPoll) return;
+  if (location.pathname.indexOf("/chat/") === 0) return;
+
+  window.__kijijiCallPoll = true;
+  var afterId = 0;
+  var ringing = false;
+
+  function poll() {
+    if (ringing) return;
+    fetch("/call/signals?after_id=" + afterId, {
+      credentials: "same-origin",
+      headers: { "X-Requested-With": "XMLHttpRequest" }
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.signals) return;
+        data.signals.forEach(function (sig) {
+          if (sig.id) afterId = Math.max(afterId, sig.id);
+          if ((sig.type || "").toLowerCase() !== "offer") return;
+          var payload = {};
+          try {
+            payload = typeof sig.payload === "string" ? JSON.parse(sig.payload || "{}") : (sig.payload || {});
+          } catch (e) {}
+          ringing = true;
+          var name = payload.from_full_name || payload.from_username || "Mtu";
+          var uname = payload.from_username || "";
+          var video = payload.video ? "Video" : "Voice";
+          // Redirect to chat so full call UI can accept
+          if (uname && confirm(video + " call kutoka " + name + " (@ " + uname + "). Fungua chat?")) {
+            location.href = "/chat/" + encodeURIComponent(uname);
+          } else {
+            ringing = false;
+          }
+        });
+      })
+      .catch(function () {});
+  }
+
+  setInterval(poll, 2000);
+  poll();
+})();
+</script>
